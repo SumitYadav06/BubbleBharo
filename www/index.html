@@ -100,7 +100,7 @@
       }
       .tagline{color:var(--muted);font-weight:700;margin:6px 0 0;font-size:15px}
       .home-actions{display:flex;flex-direction:column;align-items:center;gap:12px;margin:20px 0 6px}
-      .home-actions .btn-play{font-size:21px;padding:14px 44px;border-radius:20px}
+      .home-actions .btn-play{font-size:24px;padding:16px 58px;border-radius:22px}
       .total-stars{color:var(--accent);font-weight:800;font-size:15px}
       .section-title{font-family:"Fredoka",sans-serif;font-weight:600;font-size:19px;margin:22px 2px 4px;display:flex;align-items:center;gap:8px}
       .endless-note{color:var(--muted);font-weight:700;font-size:13px;margin:0 2px 12px}
@@ -265,10 +265,6 @@
           <button class="icon-btn" id="btn-settings" aria-label="Settings">⚙️</button>
         </div>
         <div class="logo">
-          <div class="logo-bubbles" aria-hidden="true">
-            <span style="background:#ff5252"></span><span style="background:#ffd740"></span><span style="background:#42a5f5"></span><span style="background:#66bb6a"></span><span style="background:#ec407a"></span>
-          </div>
-          <h1 class="game-name">BubbleFodo</h1>
           <p class="tagline" data-i18n="tagline">Aim, shoot &amp; pop all the bubbles!</p>
         </div>
         <!-- Splash art: src is set by JS after first paint (lazy-load) -->
@@ -1252,16 +1248,93 @@
     function floatText(x, y, txt, color){ G.floats.push({x:x, y:y, txt:txt, color:color, life: 55}); }
 
     /* ==================== Rendering ==================== */
+    /* ==================== Classic solid bubbles (updated 2026-11-25) ===
+       Solid bright glossy balls like a classic Bubble Shooter — full
+       colour, no washed-out white centre, no watery/transparent look.
+       A small crisp gloss spot + dark rim keeps every colour distinct. */
+    function shade(hex, f){ /* mix a #rrggbb colour toward white (f 0..1) */
+      var n = parseInt(hex.slice(1), 16);
+      var r = (n>>16)&255, g2 = (n>>8)&255, b = n&255;
+      r = Math.round(r + (255-r)*f); g2 = Math.round(g2 + (255-g2)*f); b = Math.round(b + (255-b)*f);
+      return "rgb("+r+","+g2+","+b+")";
+    }
     function drawBubble(x, y, colorIdx, scale){
       var s = scale||1, rad = R*s;
-      var g = ctx.createRadialGradient(x-rad*0.35, y-rad*0.4, rad*0.15, x, y, rad);
-      g.addColorStop(0, "#ffffff");
-      g.addColorStop(0.25, COLORS[colorIdx]);
+      var g = ctx.createRadialGradient(x-rad*0.3, y-rad*0.35, rad*0.1, x, y, rad);
+      g.addColorStop(0, shade(COLORS[colorIdx], 0.45));
+      g.addColorStop(0.55, COLORS[colorIdx]);
       g.addColorStop(1, COLOR_DARK[colorIdx]);
       ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI*2);
       ctx.fillStyle = g; ctx.fill();
-      ctx.beginPath(); ctx.ellipse(x-rad*0.34, y-rad*0.42, rad*0.22, rad*0.13, -0.6, 0, Math.PI*2);
-      ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(0,0,0,.28)"; ctx.stroke();
+      /* small crisp gloss, top-left */
+      ctx.beginPath(); ctx.ellipse(x-rad*0.34, y-rad*0.42, rad*0.20, rad*0.12, -0.6, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fill();
+      ctx.beginPath(); ctx.arc(x+rad*0.32, y+rad*0.38, rad*0.07, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.fill();
+    }
+    /* ==================== Cannon (added 2026-11-25) ====================
+       A proper cannon at the launch point: a wide gold barrel that
+       rotates with the aim angle (the shooter ball sits loaded in its
+       muzzle), a round metal base with wheels, and a muzzle-flash ring
+       when a bubble is fired. Drawn UNDER the shooter ball and the aim
+       dots, so it never covers the ball, the guide or the Next dot.
+       Pure canvas drawing, no assets; gameplay and angles untouched. */
+    function drawCannon(){
+      var rec = G.recoil || 0;
+      var ang = G.angle;
+      var px = SHOOT_X, py = SHOOT_Y;
+      /* base platform */
+      ctx.save();
+      ctx.beginPath(); ctx.arc(px, py+16, 30, 0, Math.PI*2);
+      var bg2 = ctx.createRadialGradient(px-10, py+6, 4, px, py+16, 32);
+      bg2.addColorStop(0, "#3a4670"); bg2.addColorStop(1, "#1b2242");
+      ctx.fillStyle = bg2; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2; ctx.stroke();
+      /* wheels */
+      var wx;
+      for (wx=-1; wx<=1; wx+=2){
+        ctx.beginPath(); ctx.arc(px + wx*26, py+22, 9, 0, Math.PI*2);
+        ctx.fillStyle = "#141a33"; ctx.fill();
+        ctx.strokeStyle = "#ffb703"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(px + wx*26, py+22, 3, 0, Math.PI*2);
+        ctx.fillStyle = "#ffb703"; ctx.fill();
+      }
+      ctx.restore();
+      /* barrel — rotates with the aim, kicks back with recoil */
+      var bl = R + 6, bw = 23; /* muzzle just past the ball, wider than the ball */
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(ang + Math.PI/2);
+      ctx.translate(0, rec*0.6);
+      var grd = ctx.createLinearGradient(-bw, 0, bw, 0);
+      grd.addColorStop(0, "#8a5a00"); grd.addColorStop(0.35, "#ffd740");
+      grd.addColorStop(0.6, "#ffb703"); grd.addColorStop(1, "#7a4d00");
+      ctx.beginPath();
+      ctx.moveTo(-bw, 18); ctx.lineTo(-bw*0.86, -bl); ctx.lineTo(bw*0.86, -bl); ctx.lineTo(bw, 18);
+      ctx.closePath(); ctx.fillStyle = grd; ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+      /* muzzle ring */
+      ctx.beginPath(); ctx.arc(0, -bl, bw*0.86+2, 0, Math.PI*2);
+      ctx.fillStyle = "#5c3d00"; ctx.fill();
+      ctx.beginPath(); ctx.arc(0, -bl, bw*0.86-3, 0, Math.PI*2);
+      ctx.fillStyle = "#2b1d00"; ctx.fill();
+      /* pivot bolt */
+      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2);
+      ctx.fillStyle = "#ffd740"; ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+      /* muzzle flash ring when a bubble was just fired */
+      if (rec > 0.5){
+        var mx = px + Math.cos(ang)*(bl+2), my = py + Math.sin(ang)*(bl+2);
+        ctx.save();
+        ctx.globalAlpha = Math.min(rec/7, 1)*0.9;
+        ctx.beginPath(); ctx.arc(mx, my, R*0.55 + (7-rec)*2.2, 0, Math.PI*2);
+        ctx.strokeStyle = "#ffe082"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.arc(mx, my, R*0.3, 0, Math.PI*2);
+        ctx.fillStyle = "rgba(255,224,130,.85)"; ctx.fill();
+        ctx.restore();
+      }
     }
     function aimPath(){
       var pts = [{x: SHOOT_X, y: SHOOT_Y}];
@@ -1346,17 +1419,8 @@
           }
         }
         ctx.restore();
-        /* launcher base + current bubble */
-        ctx.beginPath(); ctx.arc(SHOOT_X, SHOOT_Y+16, 30, 0, Math.PI*2);
-        ctx.fillStyle = "#232c58"; ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,.2)"; ctx.stroke();
-        ctx.save();
-        ctx.translate(SHOOT_X, SHOOT_Y);
-        ctx.rotate(G.angle + Math.PI/2);
-        ctx.beginPath();
-        ctx.moveTo(-9, 6); ctx.lineTo(0, -R-13); ctx.lineTo(9, 6); ctx.closePath();
-        ctx.fillStyle = "#ffb703"; ctx.fill();
-        ctx.restore();
+        /* cannon + current bubble — barrel rotates with the aim, ball sits in the muzzle */
+        drawCannon();
         var rec = G.recoil || 0;
         /* pulsing ring on the shooter ball: it is tappable to swap */
         ctx.save();
