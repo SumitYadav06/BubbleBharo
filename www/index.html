@@ -135,9 +135,13 @@
         background-image:linear-gradient(rgba(8,12,32,.60),rgba(8,12,32,.82)),var(--art-url);
         background-size:cover;background-position:center top;background-attachment:fixed;
       }
-      .hero-art{margin:14px 0 4px}
-      .hero-art img{width:100%;height:auto;aspect-ratio:3/1;object-fit:cover;border-radius:20px;box-shadow:var(--shadow);display:block;opacity:0;transition:opacity .6s}
-      .hero-art img.show{opacity:1}
+      .hero-board{margin:14px 0 4px}
+      .hero-board canvas{width:100%;height:auto;display:block;border-radius:20px;box-shadow:var(--shadow);border:1px solid var(--line)}
+      .endless-badge{display:inline-block;background:linear-gradient(180deg,#ffc93c,#ff9f03);color:#3a2400;font-family:"Fredoka",sans-serif;font-weight:700;font-size:13px;padding:3px 12px;border-radius:99px;letter-spacing:.06em;vertical-align:middle;box-shadow:0 2px 0 #c77400}
+      .endless-more{margin:14px 2px 0;border:1.5px dashed rgba(255,183,3,.45);border-radius:14px;padding:11px 12px;text-align:center;color:var(--accent);font-weight:800;font-size:13.5px;line-height:1.45;background:rgba(255,159,3,.06)}
+      .home-stats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+      .home-stats .chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 13px;font-weight:800;font-size:13px}
+      .home-stats .chip b{color:var(--accent)}
       .win-art{width:100%;height:auto;aspect-ratio:3/1;object-fit:cover;border-radius:16px;margin-bottom:10px;display:block}
 
       /* ---------- game ---------- */
@@ -267,16 +271,22 @@
         <div class="logo">
           <p class="tagline" data-i18n="tagline">Aim, shoot &amp; pop all the bubbles!</p>
         </div>
-        <!-- Splash art: src is set by JS after first paint (lazy-load) -->
-        <div class="hero-art"><img id="hero-img" alt="" width="1200" height="400"></div>
+        <!-- Live mini board: a real shooter board drawn with the game's own
+             bubble renderer — Home must read as a bubble shooter at a glance -->
+        <div class="hero-board"><canvas id="hero-cv" width="420" height="210" aria-hidden="true"></canvas></div>
         <div class="home-actions">
           <button class="btn btn-play" id="btn-play">▶ <span data-i18n="play">Play</span></button>
-          <div class="total-stars" id="total-stars">★ 0</div>
+          <div class="home-stats">
+            <span class="chip" id="total-stars">★ 0</span>
+            <span class="chip" id="home-level">▶ Level 1</span>
+            <span class="chip" id="home-best">🏆 Best 0</span>
+          </div>
         </div>
 
-        <h2 class="section-title">🎯 <span data-i18n="levels">Levels</span></h2>
-        <p class="endless-note" data-i18n="endless_note">Endless levels — a new board every time, they never run out</p>
+        <h2 class="section-title">🎯 <span data-i18n="levels">Levels</span> <span class="endless-badge" data-i18n="endless_badge">∞ ENDLESS</span></h2>
+        <p class="endless-note" data-i18n="endless_note">Levels never end — easy at first, then harder &amp; harder. How far can you go?</p>
         <div class="level-grid" id="level-grid"></div>
+        <div class="endless-more" data-i18n="endless_more">∞ And endless more — a new board every time, forever!</div>
 
         <!-- AdMob banner slot: replace this placeholder with the real banner unit when publishing. -->
         <div class="ad-slot" aria-hidden="true">
@@ -441,7 +451,8 @@
         ad_t:"Ad Break",continue:"Continue",watch_ad:"🎥 Watch Ad — Continue",
         level:"Level",left:"bubbles left",best:"Best",newbest:"New best score!",
         perfect:"Perfect!",great:"Great Job!",good:"Well Done!",
-        endless_note:"Endless levels — a new board every time, they never run out",
+        endless_note:"Levels never end — easy at first, then harder & harder. How far can you go?",
+        endless_badge:"∞ ENDLESS", endless_more:"∞ And endless more — a new board every time, forever!",
         danger:"Careful — bubbles are close to the line!"},
       hi:{tagline:"निशाना लगाओ, शूट करो और सारे बबल फोड़ो!",play:"खेलो",levels:"लेवल",
         score:"स्कोर",next:"अगला",tap_swap:"बदलने के लिए बॉल पर टैप करो",swap:"बदलो",back:"वापस",shots:"शॉट",accuracy:"सटीकता",
@@ -454,7 +465,8 @@
         ad_t:"विज्ञापन ब्रेक",continue:"आगे बढ़ो",watch_ad:"🎥 ऐड देखो — जारी रखो",
         level:"लेवल",left:"बबल बचे",best:"सर्वश्रेष्ठ",newbest:"नया सर्वश्रेष्ठ स्कोर!",
         perfect:"एकदम परफेक्ट!",great:"शाबाश!",good:"बढ़िया खेले!",
-        endless_note:"अनलिमिटेड लेवल — हर बार नया बोर्ड, कभी ख़त्म नहीं होते",
+        endless_note:"लेवल कभी ख़त्म नहीं होते — पहले आसान, फिर मुश्किल और मुश्किल। तुम कितनी दूर जा सकते हो?",
+        endless_badge:"∞ अनलिमिटेड", endless_more:"∞ और अनलिमिटेड लेवल — हर बार नया बोर्ड, हमेशा के लिए!",
         danger:"सावधान — बबल लाइन के पास हैं!"},
       es:{tagline:"¡Apunta, dispara y revienta todas las burbujas!",play:"Jugar",levels:"Niveles",
         score:"Puntos",next:"Siguiente",tap_swap:"Toca la bola para cambiar",swap:"Cambiar",back:"Atrás",shots:"Tiros",accuracy:"Precisión",
@@ -467,7 +479,8 @@
         ad_t:"Pausa publicitaria",continue:"Continuar",
         level:"Nivel",left:"burbujas restantes",best:"Récord",newbest:"¡Nuevo récord!",
         perfect:"¡Perfecto!",great:"¡Muy bien!",good:"¡Bien hecho!",
-        endless_note:"Niveles sin fin: siempre hay uno nuevo esperándote",
+        endless_note:"Los niveles nunca terminan: fáciles al principio, cada vez más difíciles. ¿Hasta dónde llegarás?",
+        endless_badge:"∞ SIN FIN", endless_more:"∞ Y muchos más niveles sin fin: ¡un tablero nuevo cada vez, para siempre!",
         danger:"¡Cuidado! ¡Las burbujas están cerca de la línea!"},
       pt:{tagline:"Mire, atire e estoure todas as bolhas!",play:"Jogar",levels:"Níveis",
         score:"Pontos",next:"Próxima",tap_swap:"Toque na bola para trocar",swap:"Trocar",back:"Voltar",shots:"Tiros",accuracy:"Precisão",
@@ -480,7 +493,8 @@
         ad_t:"Pausa para anúncio",continue:"Continuar",
         level:"Nível",left:"bolhas restantes",best:"Recorde",newbest:"Novo recorde!",
         perfect:"Perfeito!",great:"Muito bem!",good:"Bom trabalho!",
-        endless_note:"Níveis infinitos — sempre um novo desafio",
+        endless_note:"Os níveis nunca acabam: fáceis no início, cada vez mais difíceis. Até onde você consegue ir?",
+        endless_badge:"∞ INFINITO", endless_more:"∞ E infinitos níveis: um novo tabuleiro sempre, para sempre!",
         danger:"Cuidado — as bolhas estão perto da linha!"},
       bn:{tagline:"নিশানা লাগাও, শুট করো আর সব বাবল ফাটাও!",play:"খেলো",levels:"লেভেল",
         score:"স্কোর",next:"পরের",tap_swap:"বদলাতে বলে ট্যাপ করো",swap:"বদলাও",back:"পেছনে",shots:"শট",accuracy:"নির্ভুলতা",
@@ -493,7 +507,8 @@
         ad_t:"বিজ্ঞাপন বিরতি",continue:"এগিয়ে যাও",
         level:"লেভেল",left:"বাবল বাকি",best:"সেরা",newbest:"নতুন সেরা স্কোর!",
         perfect:"নিখুঁত!",great:"দারুণ!",good:"ভালো করেছো!",
-        endless_note:"অন্তহীন লেভেল — সবসময় নতুন একটি অপেক্ষা করছে",
+        endless_note:"লেভেল কখনো শেষ হয় না — প্রথমে সহজ, তারপর আরও কঠিন। তুমি কতদূর যেতে পারো?",
+        endless_badge:"∞ অসীম", endless_more:"∞ আরও অসংখ্য লেভেল — প্রতিবার নতুন বোর্ড, চিরকাল!",
         danger:"সাবধান — বাবল লাইনের কাছে!"},
       ta:{tagline:"குறி வைத்து, சுட்டு, எல்லா குமிழ்களையும் உடை!",play:"விளையாடு",levels:"நிலைகள்",
         score:"மதிப்பெண்",next:"அடுத்தது",tap_swap:"மாற்ற பந்தைத் தட்டவும்",swap:"மாற்று",back:"பின்",shots:"ஷாட்கள்",accuracy:"துல்லியம்",
@@ -506,7 +521,8 @@
         ad_t:"விளம்பர இடைவேளை",continue:"தொடரவும்",
         level:"நிலை",left:"குமிழ்கள் மீதம்",best:"சிறந்தது",newbest:"புதிய சிறந்த மதிப்பெண்!",
         perfect:"அருமை!",great:"நன்றாகச் செய்தாய்!",good:"நல்ல வேலை!",
-        endless_note:"முடிவற்ற நிலைகள் — எப்போதும் புதியது காத்திருக்கிறது",
+        endless_note:"நிலைகள் ஒருபோதும் முடிவதில்லை — முதலில் எளிது, பிறகு கடினம். நீ எவ்வளவு தூரம் செல்வாய்?",
+        endless_badge:"∞ முடிவற்றது", endless_more:"∞ மேலும் முடிவற்ற நிலைகள் — ஒவ்வொரு முறையும் புதிய பலகை, என்றும்!",
         danger:"கவனம் — குமிழ்கள் கோட்டிற்கு அருகில்!"},
       te:{tagline:"గురి పెట్టు, షూట్ చెయ్యి, అన్ని బబుల్స్ పగలగొట్టు!",play:"ఆడు",levels:"స్థాయిలు",
         score:"స్కోరు",next:"తదుపరి",tap_swap:"మార్చడానికి బంతిని నొక్కు",swap:"మార్చు",back:"వెనుకకు",shots:"షాట్లు",accuracy:"ఖచ్చితత్వం",
@@ -519,7 +535,8 @@
         ad_t:"ప్రకటన విరామం",continue:"కొనసాగించు",
         level:"స్థాయి",left:"బబుల్స్ మిగిలాయి",best:"అత్యుత్తమం",newbest:"కొత్త అత్యుత్తమ స్కోరు!",
         perfect:"పర్ఫెక్ట్!",great:"చాలా బాగుంది!",good:"బాగా చేశావు!",
-        endless_note:"అంతులేని స్థాయిలు — ఎప్పుడూ కొత్తది ఎదురుచూస్తోంది",
+        endless_note:"స్థాయిలు ఎప్పుడూ ముగియవు — మొదట సులభం, తర్వాత కష్టం. నువ్వు ఎంత దూరం వెళ్ళగలవు?",
+        endless_badge:"∞ అంతులేనిది", endless_more:"∞ ఇంకా అంతులేని స్థాయిలు — ప్రతిసారీ కొత్త బోర్డు, ఎప్పటికీ!",
         danger:"జాగ్రత్త — బబుల్స్ గీతకు దగ్గరగా ఉన్నాయి!"},
       id:{tagline:"Bidik, tembak & letuskan semua gelembung!",play:"Main",levels:"Level",
         score:"Skor",next:"Berikutnya",tap_swap:"Ketuk bola untuk menukar",swap:"Tukar",back:"Kembali",shots:"Tembakan",accuracy:"Akurasi",
@@ -532,7 +549,8 @@
         ad_t:"Jeda Iklan",continue:"Lanjutkan",
         level:"Level",left:"gelembung tersisa",best:"Terbaik",newbest:"Skor terbaik baru!",
         perfect:"Sempurna!",great:"Kerja bagus!",good:"Bagus!",
-        endless_note:"Level tanpa akhir — selalu ada yang baru menanti",
+        endless_note:"Level tidak pernah berakhir — mudah di awal, lalu makin sulit. Sejauh apa kamu bisa?",
+        endless_badge:"∞ TANPA AKHIR", endless_more:"∞ Dan level tanpa akhir lainnya — papan baru setiap saat, selamanya!",
         danger:"Hati-hati — gelembung dekat garis!"}
     };
     var lang = "en";
@@ -875,6 +893,7 @@
       for (var i=0;i<btns.length;i++) btns[i].classList.toggle("sel", btns[i].getAttribute("data-theme-btn")===name);
       if (document.body.classList.contains("bg-art")) applyArtBg(); /* swap bg art with theme */
       if (musicOn && bgm && !bgm.paused) playBgmTrack(); /* swap music track with theme */
+      drawHeroBoard();
     }
     function applySkin(name){
       if (!SKINS[name]) name = "classic";
@@ -884,6 +903,7 @@
       var btns = document.querySelectorAll("[data-skin-btn]");
       for (var i=0;i<btns.length;i++) btns[i].classList.toggle("sel", btns[i].getAttribute("data-skin-btn")===name);
       if (typeof G !== "undefined" && G) updateNextDot();
+      drawHeroBoard();
     }
     /* floating bubbles drifting up behind the whole page */
     (function buildDecor(){
@@ -1544,11 +1564,6 @@
     }
     function loadArt(){
       try{
-        var hero = document.getElementById("hero-img");
-        if (hero){
-          hero.onload = function(){ hero.classList.add("show"); };
-          hero.src = "assets/art/splash.png";
-        }
         var win = document.getElementById("win-img");
         if (win){
           win.onerror = function(){ win.style.display = "none"; };
@@ -1563,10 +1578,50 @@
     function showOverlay(id){ document.getElementById(id).classList.add("on"); }
     function hideOverlay(id){ document.getElementById(id).classList.remove("on"); }
 
+    /* ---- Home hero: a LIVE mini board, drawn with the game's own bubble
+       renderer — a real shooter board (level 1) with the shooter ball and
+       a dotted aim guide at the bottom. This is what makes Home read as
+       a bubble shooter at a glance, not a soap-bubble photo. Redrawn on
+       every renderHome and on theme/skin change. ---- */
+    function drawHeroBoard(){
+      var hc = document.getElementById("hero-cv");
+      if (!hc) return;
+      var hctx = hc.getContext("2d");
+      if (!hctx) return;
+      var HW = 420, HH = 210;
+      var th = THEMES_CV[theme] || THEMES_CV.ocean;
+      var bg = hctx.createLinearGradient(0, 0, 0, HH);
+      bg.addColorStop(0, th.top); bg.addColorStop(1, th.bot);
+      hctx.fillStyle = bg; hctx.fillRect(0, 0, HW, HH);
+      /* soft light rays, like the game stage */
+      hctx.save();
+      hctx.fillStyle = th.ray;
+      hctx.beginPath(); hctx.moveTo(90, 0); hctx.lineTo(150, 0); hctx.lineTo(210, HH); hctx.lineTo(120, HH); hctx.closePath(); hctx.fill();
+      hctx.beginPath(); hctx.moveTo(260, 0); hctx.lineTo(300, 0); hctx.lineTo(330, HH); hctx.lineTo(270, HH); hctx.closePath(); hctx.fill();
+      hctx.restore();
+      var board = genLevel(0); /* level 1 — a real board, same generator as the game */
+      var oldCtx = ctx; ctx = hctx;
+      var rows = Math.min(board.length, 4);
+      for (var r=0; r<rows; r++){
+        for (var c=0; c<board[r].length; c++){
+          drawBubble(cellX(r,c), 24 + r*ROWH, board[r][c]);
+        }
+      }
+      /* shooter ball + dotted aim guide, like in-game */
+      var sx = HW/2, sy = HH - 30, ang = -Math.PI/2 - 0.5;
+      for (var d=1; d<=5; d++){
+        var dx = sx + Math.cos(ang)*d*22, dy = sy + Math.sin(ang)*d*22;
+        hctx.beginPath(); hctx.arc(dx, dy, 4, 0, Math.PI*2);
+        hctx.globalAlpha = 0.9 - d*0.12; hctx.fillStyle = COLORS[0]; hctx.fill(); hctx.globalAlpha = 1;
+      }
+      drawBubble(sx, sy, 0);
+      ctx = oldCtx;
+    }
+
     function renderHome(){
       var grid = document.getElementById("level-grid");
       grid.innerHTML = "";
-      var tileCount = progress.unlocked + 5; /* endless: every unlocked level + a few locked ahead */
+      var tileCount = Math.max(progress.unlocked + 5, 15); /* endless: always show at least 3 rows so the journey is visible */
       for (var i=0;i<tileCount;i++){
         (function(i){
           var b = document.createElement("button");
@@ -1587,6 +1642,10 @@
         })(i);
       }
       document.getElementById("total-stars").textContent = "★ " + totalStars();
+      var bestTotal = 0; for (var bk in progress.best) bestTotal += progress.best[bk] || 0;
+      var hl = document.getElementById("home-level"); if (hl) hl.textContent = "▶ " + t("level") + " " + progress.unlocked;
+      var hb = document.getElementById("home-best"); if (hb) hb.textContent = "🏆 " + t("best") + " " + bestTotal;
+      drawHeroBoard();
       if (window.AdMobNative) window.AdMobNative.showHomeBanner(); /* banner is Home-only */
     }
 
