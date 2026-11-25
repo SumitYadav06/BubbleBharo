@@ -664,6 +664,30 @@
       if (musicTimer){ clearInterval(musicTimer); musicTimer = null; }
       var el = bgmEl(); if (el) el.pause();
     }
+    /* ---- Background-audio guard (2026-11-25): music must STOP when the app
+       is minimised / sent to Home. It used to keep playing until the app was
+       removed from recents — stopMusic() was never called on hide.
+       visibilitychange alone is not reliable inside a Capacitor WebView
+       (the WebView can keep its media session alive), so pagehide + the
+       Capacitor App state change are wired too. Resume happens only if
+       music was actually playing before the hide, and only while the Music
+       toggle is on — music the user never started is never started. ---- */
+    var bgAudioPaused = false;
+    function pauseAllAudio(){
+      var wasPlaying = false;
+      var el = bgmEl(); if (el && !el.paused) wasPlaying = true;
+      if (musicTimer) wasPlaying = true;
+      if (wasPlaying) bgAudioPaused = true;
+      stopMusic();
+      if (AC && AC.state === "running"){ try{ AC.suspend(); }catch(e){} }
+      for (var k in sfxPool){ var pool = sfxPool[k]; for (var i=0;i<pool.length;i++){ try{ if (pool[i] && !pool[i].paused) pool[i].pause(); }catch(e){} } }
+    }
+    function resumeAllAudio(){
+      if (!bgAudioPaused) return; bgAudioPaused = false;
+      if (!musicOn) return;
+      if (AC && AC.state === "suspended"){ try{ AC.resume(); }catch(e){} }
+      startMusic();
+    }
     /* ---- Real music: 3 original tracks, one per theme (assets/audio/).
        Composed + synthesized from scratch by the assistant (no samples,
        no copyrighted music) — safe for Uptodown and monetisation.
@@ -947,8 +971,14 @@
     /* extra safety net: also flush the save when the page is closed/hidden */
     window.addEventListener("beforeunload", saveGame);
     document.addEventListener("visibilitychange", function(){
-      if (document.visibilityState === "hidden") saveGame();
+      if (document.visibilityState === "hidden"){ saveGame(); pauseAllAudio(); }
+      else resumeAllAudio();
     });
+    window.addEventListener("pagehide", function(){ pauseAllAudio(); });
+    try{
+      var __capApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+      if (__capApp && __capApp.addListener){ __capApp.addListener("appStateChange", function(s){ if (s && s.isActive === false) pauseAllAudio(); else if (s && s.isActive === true) resumeAllAudio(); }); }
+    }catch(e){}
 
     /* ==================== Game engine ==================== */
     var W = 420, H = 660, R = 21, ROWH = R * 1.74, TOPY = 10;
@@ -1280,62 +1310,6 @@
        when a bubble is fired. Drawn UNDER the shooter ball and the aim
        dots, so it never covers the ball, the guide or the Next dot.
        Pure canvas drawing, no assets; gameplay and angles untouched. */
-    function drawCannon(){
-      var rec = G.recoil || 0;
-      var ang = G.angle;
-      var px = SHOOT_X, py = SHOOT_Y;
-      /* base platform */
-      ctx.save();
-      ctx.beginPath(); ctx.arc(px, py+16, 30, 0, Math.PI*2);
-      var bg2 = ctx.createRadialGradient(px-10, py+6, 4, px, py+16, 32);
-      bg2.addColorStop(0, "#3a4670"); bg2.addColorStop(1, "#1b2242");
-      ctx.fillStyle = bg2; ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2; ctx.stroke();
-      /* wheels */
-      var wx;
-      for (wx=-1; wx<=1; wx+=2){
-        ctx.beginPath(); ctx.arc(px + wx*26, py+22, 9, 0, Math.PI*2);
-        ctx.fillStyle = "#141a33"; ctx.fill();
-        ctx.strokeStyle = "#ffb703"; ctx.lineWidth = 2; ctx.stroke();
-        ctx.beginPath(); ctx.arc(px + wx*26, py+22, 3, 0, Math.PI*2);
-        ctx.fillStyle = "#ffb703"; ctx.fill();
-      }
-      ctx.restore();
-      /* barrel — rotates with the aim, kicks back with recoil */
-      var bl = R + 6, bw = 23; /* muzzle just past the ball, wider than the ball */
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(ang + Math.PI/2);
-      ctx.translate(0, rec*0.6);
-      var grd = ctx.createLinearGradient(-bw, 0, bw, 0);
-      grd.addColorStop(0, "#8a5a00"); grd.addColorStop(0.35, "#ffd740");
-      grd.addColorStop(0.6, "#ffb703"); grd.addColorStop(1, "#7a4d00");
-      ctx.beginPath();
-      ctx.moveTo(-bw, 18); ctx.lineTo(-bw*0.86, -bl); ctx.lineTo(bw*0.86, -bl); ctx.lineTo(bw, 18);
-      ctx.closePath(); ctx.fillStyle = grd; ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
-      /* muzzle ring */
-      ctx.beginPath(); ctx.arc(0, -bl, bw*0.86+2, 0, Math.PI*2);
-      ctx.fillStyle = "#5c3d00"; ctx.fill();
-      ctx.beginPath(); ctx.arc(0, -bl, bw*0.86-3, 0, Math.PI*2);
-      ctx.fillStyle = "#2b1d00"; ctx.fill();
-      /* pivot bolt */
-      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2);
-      ctx.fillStyle = "#ffd740"; ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.lineWidth = 2; ctx.stroke();
-      ctx.restore();
-      /* muzzle flash ring when a bubble was just fired */
-      if (rec > 0.5){
-        var mx = px + Math.cos(ang)*(bl+2), my = py + Math.sin(ang)*(bl+2);
-        ctx.save();
-        ctx.globalAlpha = Math.min(rec/7, 1)*0.9;
-        ctx.beginPath(); ctx.arc(mx, my, R*0.55 + (7-rec)*2.2, 0, Math.PI*2);
-        ctx.strokeStyle = "#ffe082"; ctx.lineWidth = 3; ctx.stroke();
-        ctx.beginPath(); ctx.arc(mx, my, R*0.3, 0, Math.PI*2);
-        ctx.fillStyle = "rgba(255,224,130,.85)"; ctx.fill();
-        ctx.restore();
-      }
-    }
     function aimPath(){
       var pts = [{x: SHOOT_X, y: SHOOT_Y}];
       var dx = Math.cos(G.angle), dy = Math.sin(G.angle);
@@ -1419,8 +1393,7 @@
           }
         }
         ctx.restore();
-        /* cannon + current bubble — barrel rotates with the aim, ball sits in the muzzle */
-        drawCannon();
+        /* current bubble */
         var rec = G.recoil || 0;
         /* pulsing ring on the shooter ball: it is tappable to swap */
         ctx.save();
