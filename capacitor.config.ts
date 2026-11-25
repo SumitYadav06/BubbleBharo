@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.bubblebharo.shooter',
-  appName: 'BubbleBharo',
+  appName: 'BubbleFodo',
   webDir: 'www',
   backgroundColor: '#E8F6FF',
   android: {
