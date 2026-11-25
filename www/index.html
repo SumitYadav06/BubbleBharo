@@ -125,6 +125,9 @@
       }
       .ad-slot b{font-size:11px;letter-spacing:.22em;text-transform:uppercase}
       .ad-slot span{font-size:12px;font-weight:700}
+      /* In the APK the banner is a real native AdMob banner, so the
+         fake placeholder box must never show next to it. */
+      .native-ads .ad-slot{display:none;}
 
       /* ---------- game ---------- */
       .game-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -334,6 +337,7 @@
         <h2 data-i18n="lose_t">Out of Space!</h2>
         <p data-i18n="lose_p">The bubbles crossed the line. Try again — aim for bigger groups!</p>
         <div class="final-score"><span data-i18n="score">Score</span>: <span id="lose-score">0</span></div>
+        <button class="btn btn-pink" id="btn-lose-ad" style="width:100%;margin-top:14px" data-i18n="watch_ad">🎥 Watch Ad — Continue</button>
         <div class="row">
           <button class="btn btn-ghost" id="btn-lose-home" data-i18n="home">Home</button>
           <button class="btn btn-play" id="btn-lose-retry" data-i18n="retry">Try Again</button>
@@ -411,7 +415,7 @@
         settings:"Settings",sound:"Sound Effects",sound_s:"Pop, shoot and win sounds",
         music:"Music",music_s:"Sweet melodic background tune",language:"Language",done:"Done",
         theme:"Theme",theme_s:"Background style",
-        ad_t:"Ad Break",continue:"Continue",
+        ad_t:"Ad Break",continue:"Continue",watch_ad:"🎥 Watch Ad — Continue",
         level:"Level",left:"bubbles left",best:"Best",newbest:"New best score!",
         perfect:"Perfect!",great:"Great Job!",good:"Well Done!",
         endless_note:"Endless levels — a new board every time, they never run out",
@@ -424,7 +428,7 @@
         settings:"सेटिंग्स",sound:"आवाज़ इफ़ेक्ट",sound_s:"फूटने, शूट और जीत की आवाज़",
         music:"म्यूज़िक",music_s:"मीठी मेलोडी वाली बैकग्राउंड धुन",language:"भाषा",done:"हो गया",
         theme:"थीम",theme_s:"बैकग्राउंड स्टाइल",
-        ad_t:"विज्ञापन ब्रेक",continue:"आगे बढ़ो",
+        ad_t:"विज्ञापन ब्रेक",continue:"आगे बढ़ो",watch_ad:"🎥 ऐड देखो — जारी रखो",
         level:"लेवल",left:"बबल बचे",best:"सर्वश्रेष्ठ",newbest:"नया सर्वश्रेष्ठ स्कोर!",
         perfect:"एकदम परफेक्ट!",great:"शाबाश!",good:"बढ़िया खेले!",
         endless_note:"अनलिमिटेड लेवल — हर बार नया बोर्ड, कभी ख़त्म नहीं होते",
@@ -828,13 +832,14 @@
     function rowLen(r){ return (r%2) ? COLS-1 : COLS; }
 
     function newGame(levelIdx){
+      if (window.AdMobNative) window.AdMobNative.hideBanner(); /* banner is Home-only */
       var grid = genLevel(levelIdx);
       G = {
         level: levelIdx, grid: grid, score: 0,
         cur: 0, next: 0, angle: -Math.PI/2,
         flying: null, falling: [], parts: [], floats: [], rings: [],
         shotsNoPop: 0, over: false, busy: false, danger: false, combo: 0, recoil: 0,
-        shots: 0, popShots: 0, maxCombo: 0, startBubbles: 0, swapFlash: 0
+        shots: 0, popShots: 0, maxCombo: 0, startBubbles: 0, swapFlash: 0, extraLifeUsed: false
       };
       for (var sr=0; sr<grid.length; sr++) for (var sc=0; sc<grid[sr].length; sc++)
         if (grid[sr][sc] !== null && grid[sr][sc] !== undefined) G.startBubbles++;
@@ -1089,6 +1094,8 @@
       } else {
         sfx("lose");
         document.getElementById("lose-score").textContent = G.score;
+        /* Watch Ad extra life: once per level attempt, then the button hides */
+        document.getElementById("btn-lose-ad").style.display = G.extraLifeUsed ? "none" : "";
         setTimeout(function(){ showOverlay("ov-lose"); }, 350);
       }
       renderHome();
@@ -1373,23 +1380,225 @@
         })(i);
       }
       document.getElementById("total-stars").textContent = "★ " + totalStars();
+      if (window.AdMobNative) window.AdMobNative.showHomeBanner(); /* banner is Home-only */
     }
 
-    /* ==================== Ads — AdMob-ready ====================
-       Paste the real AdMob unit IDs here when publishing (e.g. on Uptodown):
-         bannerId       -> home screen banner slot
-         interstitialId -> ad break after every 3rd level
-         appOpenId      -> shown once, as soon as the app is opened
-         rewardedId     -> stored here; this game has no rewarded
-                           (Watch Ad) placement yet, so it is unused
-                           for now — do not delete it       */
+    /* ==================== Ads — real AdMob (2026-11-25) ====================
+       Placements (agreed with the user):
+         Banner       — Home only, never while playing
+         Interstitial — after every 3rd completed level
+         Rewarded     — ONLY when the player taps Watch Ad on the
+                        Lose screen (extra life: clears the bottom
+                        rows and continues). Reward is granted ONLY
+                        when AdMob reports it earned — never free.
+         App Open     — once when the game opens
+       NO Rewarded-interstitial unit exists — never create one.
+
+       HOW IT WORKS:
+       * Web preview: no Capacitor plugin → the demo overlays in
+         this page (the old behaviour). No real ad, no error.
+       * APK (native): window.AdMobNative talks to the real AdMob
+         SDK through @capacitor-community/admob v6
+         (Capacitor 6, installed by the GitHub workflow). The
+         workflow also writes the App ID into AndroidManifest +
+         strings.xml after `cap sync` — without that meta-data the
+         SDK refuses to initialise.
+       * App Open: this plugin version has NO App Open API, so the
+         app-open slot stays a demo overlay. It is never faked as a
+         real ad. A plugin with App Open support is a separate job.
+       AdMob IDs are public-safe identifiers only (payment is tied
+       to the AdMob account, not the ID) — they cannot be used to
+       hack the account or take earnings. */
     var ADMOB = {
-      appId:          "ca-app-pub-2948876721824340~2382146287",
-      bannerId:       "ca-app-pub-2948876721824340/5575285835",
-      interstitialId: "ca-app-pub-2948876721824340/4003310178",
-      rewardedId:     "ca-app-pub-2948876721824340/2270978996",
-      appOpenId:      "ca-app-pub-2948876721824340/4550105086"
+      appId:          "ca-app-pub-2948876721824340~2382146287",  /* real, 2026-11-25 */
+      bannerId:       "ca-app-pub-2948876721824340/5575285835",  /* real, 2026-11-25 */
+      interstitialId: "ca-app-pub-2948876721824340/4003310178",  /* real, 2026-11-25 */
+      rewardedId:     "ca-app-pub-2948876721824340/2270978996",  /* real, 2026-11-25 */
+      appOpenId:      "ca-app-pub-2948876721824340/4550105086"   /* real, 2026-11-25 */
     };
+    window.ADMOB_CONFIG = {
+      appId:              ADMOB.appId,
+      bannerUnitId:       ADMOB.bannerId,
+      interstitialUnitId: ADMOB.interstitialId,
+      appOpenUnitId:      ADMOB.appOpenId,
+      rewardedUnitId:     ADMOB.rewardedId
+    };
+    window.AdMobNative = (function(){
+      var cfg = window.ADMOB_CONFIG;
+      var plugin = null, inited = false, initPromise = null;
+      var bannerShown = false;
+      var interstitialReady = false;
+      var pendingInterstitialCb = null, pendingInterstitialFallback = null;
+      function isNative(){
+        try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+        catch(e){ return false; }
+      }
+      function getPlugin(){
+        try{ var C = window.Capacitor; if(!C || !C.Plugins) return null; return C.Plugins.AdMob || null; }
+        catch(e){ return null; }
+      }
+      function preloadInterstitial(){
+        if(!inited) return;
+        try{
+          plugin.prepareInterstitial({adId: cfg.interstitialUnitId}).then(function(){
+            interstitialReady = true;
+          }).catch(function(){ interstitialReady = false; });
+        }catch(e){ interstitialReady = false; }
+      }
+      function preloadRewarded(){
+        if(!inited) return;
+        try{ plugin.prepareRewardVideoAd({adId: cfg.rewardedUnitId}).catch(function(){}); }
+        catch(e){}
+      }
+      function showHomeBanner(){
+        if(!inited || bannerShown) return;
+        try{
+          plugin.showBanner({adId: cfg.bannerUnitId, adSize: 'BANNER', position: 'BOTTOM_CENTER', margin: 0}).then(function(){
+            bannerShown = true;
+            try{ document.body.classList.add('native-ads'); }catch(e){}
+          }).catch(function(){});
+        }catch(e){}
+      }
+      function hideBanner(){
+        if(!inited || !bannerShown) return;
+        bannerShown = false;
+        try{ plugin.hideBanner().catch(function(){}); }catch(e){}
+      }
+      /* Interstitial: onShown runs only after the ad is dismissed
+         (Dismissed event). onFallback runs when no real ad is
+         available at all (web preview / no fill / load failed) —
+         the caller then shows the demo overlay instead. */
+      function showInterstitial(onShown, onFallback){
+        if(!inited || !interstitialReady){
+          if(inited) preloadInterstitial();
+          if(onFallback) onFallback();
+          return;
+        }
+        interstitialReady = false;
+        pendingInterstitialCb = onShown || null;
+        pendingInterstitialFallback = onFallback || null;
+        /* Safety net: if the Dismissed event never arrives (plugin
+           quirk), never leave the player stuck on the ad break —
+           after 120s (longer than any interstitial) move on. */
+        setTimeout(function(){
+          if(pendingInterstitialCb){
+            var cb = pendingInterstitialCb;
+            pendingInterstitialCb = null; pendingInterstitialFallback = null;
+            preloadInterstitial();
+            if(cb) cb();
+          }
+        }, 120000);
+        try{
+          var p = plugin.showInterstitial();
+          if(p && p.then){
+            p.catch(function(){
+              var fb = pendingInterstitialFallback;
+              pendingInterstitialCb = null; pendingInterstitialFallback = null;
+              preloadInterstitial();
+              if(fb) fb();
+            });
+          }
+        }catch(e){
+          pendingInterstitialCb = null; pendingInterstitialFallback = null;
+          preloadInterstitial();
+          if(onFallback) onFallback();
+        }
+      }
+      /* Rewarded: onRewarded runs ONLY when AdMob reports the user
+         earned the reward. onLoadFail = ad could not even load
+         (no fill) — caller may show the demo overlay. onNotEarned =
+         ad showed but the user closed it without earning — no
+         reward and no demo, so nobody gets a free extra life. */
+      function showRewarded(onRewarded, onLoadFail, onNotEarned){
+        if(!inited){ if(onLoadFail) onLoadFail(); return; }
+        try{
+          plugin.prepareRewardVideoAd({adId: cfg.rewardedUnitId}).then(function(){
+            var shown = plugin.showRewardVideoAd();
+            if(shown && shown.then){
+              shown.then(function(reward){
+                preloadRewarded();
+                if(reward){ if(onRewarded) onRewarded(); }
+                else if(onNotEarned) onNotEarned();
+              }).catch(function(){
+                preloadRewarded();
+                if(onNotEarned) onNotEarned();
+              });
+            } else if(onNotEarned) onNotEarned();
+          }).catch(function(){ if(onLoadFail) onLoadFail(); });
+        }catch(e){ if(onLoadFail) onLoadFail(); }
+      }
+      function init(){
+        if(initPromise) return initPromise;
+        initPromise = new Promise(function(resolve){
+          if(!isNative()){ resolve(false); return; }
+          plugin = getPlugin();
+          if(!plugin || !plugin.initialize){ resolve(false); return; }
+          try{
+            if(plugin.addListener){
+              plugin.addListener('interstitialAdDismissed', function(){
+                var cb = pendingInterstitialCb;
+                pendingInterstitialCb = null; pendingInterstitialFallback = null;
+                preloadInterstitial();
+                if(cb) cb();
+              });
+              plugin.addListener('interstitialAdFailedToShow', function(){
+                var fb = pendingInterstitialFallback;
+                pendingInterstitialCb = null; pendingInterstitialFallback = null;
+                preloadInterstitial();
+                if(fb) fb();
+              });
+              plugin.addListener('interstitialAdFailedToLoad', function(){ interstitialReady = false; });
+            }
+          }catch(e){}
+          plugin.initialize().then(function(){
+            inited = true;
+            /* UMP consent (EEA/UK only in practice): best-effort,
+               never blocks the game or the ads. */
+            try{
+              if(plugin.requestConsentInfo){
+                plugin.requestConsentInfo().then(function(info){
+                  if(info && info.isConsentFormAvailable && info.status === 'REQUIRED' && plugin.showConsentForm){
+                    plugin.showConsentForm().catch(function(){});
+                  }
+                }).catch(function(){});
+              }
+            }catch(e){}
+            preloadInterstitial();
+            preloadRewarded();
+            showHomeBanner();
+            resolve(true);
+          }).catch(function(){ resolve(false); });
+        });
+        return initPromise;
+      }
+      return {
+        init: init,
+        isNative: isNative,
+        isReady: function(){ return inited; },
+        showHomeBanner: showHomeBanner,
+        hideBanner: hideBanner,
+        showInterstitial: showInterstitial,
+        showRewarded: showRewarded
+      };
+    })();
+    /* Backwards-compatible seam.
+       App Open: no API in this plugin version — the demo overlay
+       in the app-open timer below stays as-is; do NOT wire the App
+       Open unit id into an interstitial call (wrong format, policy risk). */
+    window.admobShowInterstitial = function(onClose, onFallback){
+      if(window.AdMobNative) window.AdMobNative.showInterstitial(onClose, onFallback);
+      else if(onFallback) onFallback();
+    };
+    window.admobShowAppOpen = function(onClose){
+      /* Demo overlay only — see note above. */
+      if(onClose) onClose();
+    };
+    window.admobShowRewarded = function(onReward, onLoadFail, onNotEarned){
+      if(window.AdMobNative) window.AdMobNative.showRewarded(onReward, onLoadFail, onNotEarned);
+      else if(onLoadFail) onLoadFail();
+    };
+    /* Demo ad-break overlay: used on web preview and as the fallback
+       when no real ad can load (no fill). Never shown next to a real ad. */
     var adTimer = null;
     function showAdBreak(seconds, fn){
       showOverlay("ov-ad");
@@ -1402,12 +1611,49 @@
       }, 1000);
       btn.onclick = function(){ hideOverlay("ov-ad"); sfx("click"); if (fn) fn(); };
     }
-    /* interstitial after every 3rd completed level */
+    /* interstitial after every 3rd completed level — real ad first,
+       demo overlay only if the real ad cannot load */
     function maybeAdThen(fn){
-      if (G && (G.level+1) % 3 === 0) showAdBreak(3, fn);
+      if (G && (G.level+1) % 3 === 0){
+        if (window.AdMobNative && window.AdMobNative.isReady()){
+          window.AdMobNative.showInterstitial(fn, function(){ showAdBreak(3, fn); });
+        } else showAdBreak(3, fn);
+      }
       else fn();
     }
-    /* app-open ad: once per session, shortly after the app opens on Home */
+    /* Rewarded extra life (Lose screen, opt-in only): clears the two
+       lowest bubble rows and lets the player continue the same level.
+       Only once per level attempt. Real ad first; demo overlay only
+       if the ad cannot load; nothing at all if the ad was closed
+       without earning — no free extra life. */
+    function continueAfterAd(){
+      if (!G) return;
+      var cleared = 0;
+      for (var r = G.grid.length - 1; r >= 0 && cleared < 2; r--){
+        var has = false;
+        for (var c = 0; c < G.grid[r].length; c++)
+          if (G.grid[r][c] !== null && G.grid[r][c] !== undefined){ has = true; break; }
+        if (has){
+          for (var c2 = 0; c2 < G.grid[r].length; c2++) G.grid[r][c2] = null;
+          cleared++;
+        }
+      }
+      G.over = false; G.extraLifeUsed = true; G.shotsNoPop = 0; G.danger = false;
+      hideOverlay("ov-lose");
+      updateHUD();
+      sfx("click");
+    }
+    function showRewardedAd(onEarned){
+      if (window.AdMobNative && window.AdMobNative.isReady()){
+        window.AdMobNative.showRewarded(onEarned,
+          function(){ showAdBreak(3, onEarned); }, /* no fill -> demo, then grant */
+          function(){ /* closed without earning: stay on Lose screen */ });
+      } else {
+        showAdBreak(3, onEarned); /* web preview: demo, then grant */
+      }
+    }
+    /* app-open ad: once per session, shortly after the app opens on Home.
+       Demo overlay only — the AdMob plugin has no App Open API. */
     var appOpenAdDone = false;
     setTimeout(function(){
       if (appOpenAdDone) return;
@@ -1447,6 +1693,12 @@
     });
     document.getElementById("btn-lose-home").addEventListener("click", function(){ sfx("click"); hideOverlay("ov-lose"); renderHome(); showScreen("home"); });
     document.getElementById("btn-lose-retry").addEventListener("click", function(){ sfx("click"); hideOverlay("ov-lose"); newGame(G.level); });
+    /* Watch Ad extra life — opt-in only, once per level attempt */
+    document.getElementById("btn-lose-ad").addEventListener("click", function(){
+      if (!G || G.extraLifeUsed) return;
+      sfx("click");
+      showRewardedAd(function(){ continueAfterAd(); });
+    });
 
     document.getElementById("btn-settings").addEventListener("click", function(){ sfx("click"); showOverlay("ov-settings"); });
     document.getElementById("btn-settings-close").addEventListener("click", function(){ sfx("click"); hideOverlay("ov-settings"); });
@@ -1480,6 +1732,44 @@
 
     renderHome();
     applyLang();
+    /* Real AdMob (APK only) — no-op on web preview. */
+    if (window.AdMobNative) window.AdMobNative.init();
     </script>
-  </body>
+  
+<script>
+/* ================= Daily notification (once a day) =================
+   APK only, via Capacitor LocalNotifications. On first open (a few
+   seconds after load, so it never blocks the game start) it asks for
+   notification permission; if granted it schedules ONE daily
+   notification at 10:00 AM local time. The localStorage flag below
+   makes sure this is scheduled only once. On the web preview the
+   plugin is absent, so this is a harmless no-op. */
+(function () {
+  try {
+    if (window.localStorage.getItem('daily-notif-scheduled-v1')) return;
+    setTimeout(function () {
+      try {
+        var Cap = window.Capacitor;
+        if (!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+        if (Cap.isNativePlatform && !Cap.isNativePlatform()) return;
+        var LN = Cap.Plugins.LocalNotifications;
+        LN.requestPermissions().then(function (res) {
+          var granted = res && (res.display === 'granted');
+          if (!granted) return;
+          var notif = {
+            id: 1,
+            title: "BubbleFodo",
+            body: "BubbleFodo — bubbles phodne aao! 🫧",
+            schedule: { on: { hour: 10, minute: 0 }, repeats: true, allowWhileIdle: true }
+          };
+          return LN.schedule({ notifications: [notif] });
+        }).then(function () {
+          try { window.localStorage.setItem('daily-notif-scheduled-v1', '1'); } catch (e) {}
+        }).catch(function () {});
+      } catch (e) {}
+    }, 3000);
+  } catch (e) {}
+})();
+</script>
+</body>
 </html>
