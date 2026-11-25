@@ -128,6 +128,17 @@
       /* In the APK the banner is a real native AdMob banner, so the
          fake placeholder box must never show next to it. */
       .native-ads .ad-slot{display:none;}
+      /* ---------- lazy-loaded artwork (added 2026-11-25) ----------
+         Theme backgrounds are applied by JS only after first paint
+         (body.bg-art), so the game still opens instantly. */
+      body.bg-art{
+        background-image:linear-gradient(rgba(8,12,32,.60),rgba(8,12,32,.82)),var(--art-url);
+        background-size:cover;background-position:center top;background-attachment:fixed;
+      }
+      .hero-art{margin:14px 0 4px}
+      .hero-art img{width:100%;height:auto;aspect-ratio:3/1;object-fit:cover;border-radius:20px;box-shadow:var(--shadow);display:block;opacity:0;transition:opacity .6s}
+      .hero-art img.show{opacity:1}
+      .win-art{width:100%;height:auto;aspect-ratio:3/1;object-fit:cover;border-radius:16px;margin-bottom:10px;display:block}
 
       /* ---------- game ---------- */
       .game-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -260,6 +271,8 @@
           <h1 class="game-name">BubbleFodo</h1>
           <p class="tagline" data-i18n="tagline">Aim, shoot &amp; pop all the bubbles!</p>
         </div>
+        <!-- Splash art: src is set by JS after first paint (lazy-load) -->
+        <div class="hero-art"><img id="hero-img" alt="" width="1200" height="400"></div>
         <div class="home-actions">
           <button class="btn btn-play" id="btn-play">▶ <span data-i18n="play">Play</span></button>
           <div class="total-stars" id="total-stars">★ 0</div>
@@ -309,6 +322,8 @@
     <div class="overlay" id="ov-win">
       <div id="confetti" aria-hidden="true"></div>
       <div class="dialog win-dialog">
+        <!-- Celebration art: same splash image, cropped — src set by JS after first paint -->
+        <img id="win-img" class="win-art" alt="" width="1200" height="400">
         <div class="win-badge" id="win-level">Level 1</div>
         <h2 data-i18n="win_t">Level Complete!</h2>
         <p class="win-msg" id="win-msg">Perfect!</p>
@@ -381,6 +396,15 @@
             <button class="th-btn" data-theme-btn="candy" aria-label="Candy theme"><span style="background:linear-gradient(135deg,#ff8ad8,#7c5cff)"></span></button>
           </div>
         </div>
+        <div class="set-row">
+          <div><div class="lab" data-i18n="skin">Bubble Skin</div><div class="sub" data-i18n="skin_s">Bubble colours</div></div>
+          <div class="theme-pick">
+            <button class="th-btn sel" data-skin-btn="classic" aria-label="Classic bubbles"><span style="background:linear-gradient(135deg,#ff5252,#42a5f5,#66bb6a)"></span></button>
+            <button class="th-btn" data-skin-btn="neon" aria-label="Neon bubbles"><span style="background:linear-gradient(135deg,#00e5ff,#ff2e93,#a6ff00)"></span></button>
+            <button class="th-btn" data-skin-btn="pastel" aria-label="Pastel bubbles"><span style="background:linear-gradient(135deg,#ff9fb2,#8ecfff,#ffe08a)"></span></button>
+            <button class="th-btn" data-skin-btn="jewel" aria-label="Jewel bubbles"><span style="background:linear-gradient(135deg,#7b2ff7,#e33e7f,#00b8a9)"></span></button>
+          </div>
+        </div>
         <div class="row">
           <button class="btn btn-play" id="btn-settings-close" data-i18n="done">Done</button>
         </div>
@@ -403,6 +427,9 @@
       </div>
     </div>
 
+    <!-- Real background music (original tracks, assets/audio/) -->
+    <audio id="bgm" loop preload="none"></audio>
+
     <script>
     "use strict";
     /* ==================== i18n ==================== */
@@ -414,7 +441,7 @@
         retry:"Try Again",pause_t:"Paused",resume:"Resume",restart:"Restart Level",
         settings:"Settings",sound:"Sound Effects",sound_s:"Pop, shoot and win sounds",
         music:"Music",music_s:"Sweet melodic background tune",language:"Language",done:"Done",
-        theme:"Theme",theme_s:"Background style",
+        theme:"Theme",theme_s:"Background style",skin:"Bubble Skin",skin_s:"Bubble colours",
         ad_t:"Ad Break",continue:"Continue",watch_ad:"🎥 Watch Ad — Continue",
         level:"Level",left:"bubbles left",best:"Best",newbest:"New best score!",
         perfect:"Perfect!",great:"Great Job!",good:"Well Done!",
@@ -555,6 +582,9 @@
     }
     function sfx(name){
       if (!soundOn) return;
+      /* Real audio files first (original synth MP3s in assets/audio/);
+         the WebAudio synth below is the fallback if a file cannot play. */
+      if (name==="pop" || name==="win" || name==="click"){ if (sfxFile(name)) return; }
       if (name==="shoot"){ tone(340,0.18,"sine",0.10,0,760); tone(680,0.10,"triangle",0.04,0.02,980); }
       else if (name==="bounce"){ tone(230,0.07,"sine",0.07,0,180); }
       else if (name==="stick"){ tone(180,0.09,"triangle",0.13,0,140); tone(360,0.05,"sine",0.05,0.01); }
@@ -626,16 +656,95 @@
       /* soft shaker-like tick on beats 2 and 4 — tiny filtered noise feel via short high sine, kept whisper-quiet */
       if (inBar === 2 || inBar === 6) musNote(6200, 0.03, "sine", 0.004, 0.004);
     }
-    function startMusic(){ if (musicTimer) return; ac(); musicTimer = setInterval(musicTick, 265); }
-    function stopMusic(){ if (musicTimer){ clearInterval(musicTimer); musicTimer = null; } }
+    function startMusic(){
+      if (!musicOn) return;
+      if (musicTimer) return; /* synth tune already running */
+      var el = bgmEl();
+      if (el && !el.paused && el.getAttribute("src")) return; /* MP3 already playing */
+      if (!bgmFailed && playBgmTrack()) return; /* real MP3 track */
+      ac(); musicTimer = setInterval(musicTick, 265); /* fallback: synth tune */
+    }
+    function stopMusic(){
+      if (musicTimer){ clearInterval(musicTimer); musicTimer = null; }
+      var el = bgmEl(); if (el) el.pause();
+    }
+    /* ---- Real music: 3 original tracks, one per theme (assets/audio/).
+       Composed + synthesized from scratch by the assistant (no samples,
+       no copyrighted music) — safe for Uptodown and monetisation.
+       The old WebAudio tune above stays as a fallback if a file fails. */
+    var MUSIC_TRACKS = {
+      ocean:  "assets/audio/music-ocean.mp3",   /* Ocean Breeze, C major, 90 s */
+      sunset: "assets/audio/music-sunset.mp3",  /* Sunset Glow, A minor, 90 s */
+      candy:  "assets/audio/music-candy.mp3"    /* Candy Pop, G major, 91 s */
+    };
+    var bgm = null, bgmFailed = false;
+    function bgmEl(){ if (!bgm) bgm = document.getElementById("bgm"); return bgm; }
+    function playBgmTrack(){
+      var el = bgmEl(); if (!el) return false;
+      try{
+        var src = MUSIC_TRACKS[theme] || MUSIC_TRACKS.ocean;
+        if (el.getAttribute("src") !== src) el.src = src;
+        el.volume = 0.5;
+        var p = el.play();
+        if (p && p.catch) p.catch(function(){ bgmFailed = true; startMusic(); });
+        return true;
+      }catch(e){ bgmFailed = true; return false; }
+    }
+    /* ---- Real sound effects: original synth MP3s, pooled so rapid
+       pops can overlap. Any load/play failure falls back to sfx(). */
+    var SFX_FILES = {
+      pop:   "assets/audio/sfx-pop.mp3",
+      win:   "assets/audio/sfx-win.mp3",
+      click: "assets/audio/sfx-click.mp3"
+    };
+    var sfxPool = {}, sfxFileBad = {};
+    function sfxFile(name){
+      if (!soundOn) return false;
+      var src = SFX_FILES[name];
+      if (!src || sfxFileBad[name]) return false;
+      try{
+        var pool = sfxPool[name] || (sfxPool[name] = []);
+        var a = null;
+        for (var i=0;i<pool.length;i++){ if (pool[i].paused){ a = pool[i]; break; } }
+        if (!a){
+          if (pool.length >= 4) a = pool[0];
+          else {
+            a = new Audio(); a.preload = "auto"; a.src = src;
+            a.addEventListener("error", function(){ sfxFileBad[name] = true; });
+            pool.push(a);
+          }
+        }
+        a.currentTime = 0;
+        var p = a.play();
+        if (p && p.catch) p.catch(function(){});
+        return true;
+      }catch(e){ return false; }
+    }
 
     /* ==================== Levels ==================== */
-    var COLORS = ["#ff5252","#42a5f5","#66bb6a","#ffd740","#ab47bc","#ff9100","#ec407a"];
-    var COLOR_DARK = ["#c62828","#1565c0","#2e7d32","#f9a825","#6a1b9a","#e65100","#ad1457"];
+    /* ==================== Bubble skins (added 2026-11-25) ====================
+       4 pickable colour sets for the bubbles — Classic is the original
+       palette; Neon / Pastel / Jewel recolour every bubble, the shooter
+       ball, the Next dot, particles and confetti. Picked in Settings,
+       saved with the rest of the progress. */
+    var SKINS = {
+      classic: { colors: ["#ff5252","#42a5f5","#66bb6a","#ffd740","#ab47bc","#ff9100","#ec407a"],
+                 dark:   ["#c62828","#1565c0","#2e7d32","#f9a825","#6a1b9a","#e65100","#ad1457"] },
+      neon:    { colors: ["#00e5ff","#ff2e93","#a6ff00","#ffea00","#b967ff","#ff6b00","#00ff9d"],
+                 dark:   ["#0090a8","#b3125e","#5da300","#a89400","#6d28a8","#a84300","#009e63"] },
+      pastel:  { colors: ["#ff9fb2","#8ecfff","#9be8a0","#ffe08a","#d3a6ff","#ffb27a","#ff8fb0"],
+                 dark:   ["#c25a72","#3f7fb8","#4d9a58","#c9a13a","#8a5cc7","#b06a35","#a34d68"] },
+      jewel:   { colors: ["#7b2ff7","#e33e7f","#00b8a9","#ffb703","#2ec4ff","#ff5a3c","#4ade80"],
+                 dark:   ["#4c1d95","#9d174d","#00695c","#b45309","#0369a1","#b91c1c","#15803d"] }
+    };
+    var skin = "classic";
+    var COLORS = SKINS.classic.colors.slice();
+    var COLOR_DARK = SKINS.classic.dark.slice();
     function mulberry(seed){ return function(){ seed|=0; seed = seed+0x6D2B79F5|0; var x = Math.imul(seed^seed>>>15, 1|seed); x = x+Math.imul(x^x>>>7, 61|x)^x; return ((x^x>>>14)>>>0)/4294967296; }; }
 
-    /* 30 levels: rows, colour count, pattern style — difficulty rises in 3 stages.
-       Stage 1 (1-10) easy, Stage 2 (11-20) medium, Stage 3 (21-30) hard. */
+    /* 45 levels: rows, colour count, pattern style — difficulty rises in 3 stages.
+       Stage 1 (1-10) easy, Stage 2 (11-20) medium, Stage 3 (21-30) hard,
+       Stage 4 (31-45) expert — new rings / spiral / waves patterns. */
     var LEVELS = [
       {rows:5, colors:3, style:"blocks"},
       {rows:5, colors:3, style:"stripes"},
@@ -666,12 +775,28 @@
       {rows:10, colors:7, style:"columns"},
       {rows:10, colors:7, style:"checker"},
       {rows:10, colors:7, style:"diamond"},
-      {rows:10, colors:7, style:"cluster"}
+      {rows:10, colors:7, style:"cluster"},
+      /* --- expert stage: levels 31-45 --- */
+      {rows:10, colors:7, style:"rings"},
+      {rows:10, colors:7, style:"spiral"},
+      {rows:10, colors:7, style:"waves"},
+      {rows:10, colors:7, style:"rings"},
+      {rows:9,  colors:7, style:"spiral"},
+      {rows:10, colors:7, style:"checker"},
+      {rows:10, colors:7, style:"waves"},
+      {rows:10, colors:7, style:"diamond"},
+      {rows:10, colors:7, style:"rings"},
+      {rows:10, colors:7, style:"spiral"},
+      {rows:10, colors:7, style:"cluster"},
+      {rows:10, colors:7, style:"waves"},
+      {rows:10, colors:7, style:"rings"},
+      {rows:10, colors:7, style:"spiral"},
+      {rows:10, colors:7, style:"waves"}
     ];
-    /* Endless mode: the 30 handcrafted boards are loop 1. After that the
+    /* Endless mode: the 45 handcrafted boards are loop 1. After that the
        game never ends — boards keep coming in loops, remixing the patterns
        at medium-to-hard difficulty so there is always a next level. */
-    var LOOP_STYLES = ["cluster","blocks","diamond","checker","columns","stripes"];
+    var LOOP_STYLES = ["cluster","blocks","diamond","checker","columns","stripes","rings","spiral","waves"];
     function levelDef(idx){
       if (idx < LEVELS.length) return LEVELS[idx];
       var loop = Math.floor(idx / LEVELS.length);
@@ -693,6 +818,9 @@
           else if (L.style==="columns"){ col = Math.floor(c/2) % L.colors; if (rnd()<0.15) col = Math.floor(rnd()*L.colors); }
           else if (L.style==="checker"){ col = (r + Math.floor(c/2)) % L.colors; }
           else if (L.style==="diamond"){ var d = Math.abs(c-4.5)+Math.abs(r-Math.floor(L.rows/2)); col = Math.floor(d) % L.colors; if (rnd()<0.12) col = Math.floor(rnd()*L.colors); }
+          else if (L.style==="rings"){ var midR = Math.floor(L.rows/2); var ring = Math.max(Math.abs(c-4.5)/1.6, Math.abs(r-midR)); col = Math.floor(ring) % L.colors; if (rnd()<0.10) col = Math.floor(rnd()*L.colors); }
+          else if (L.style==="spiral"){ var sdx = c-4.5, sdy = r-Math.floor(L.rows/2); var ang = Math.atan2(sdy, sdx); var rad = Math.sqrt(sdx*sdx+sdy*sdy); col = Math.floor(((ang+Math.PI)/(2*Math.PI) + rad*0.45) * L.colors) % L.colors; if (rnd()<0.10) col = Math.floor(rnd()*L.colors); }
+          else if (L.style==="waves"){ var wv = Math.sin((c + r*0.8)*0.85); col = Math.floor((wv+1)/2 * L.colors) % L.colors; if (rnd()<0.12) col = Math.floor(rnd()*L.colors); }
           else if (L.style==="cluster"){
             var opts = [];
             if (c>0) opts.push(row[c-1]);
@@ -725,6 +853,17 @@
       document.body.setAttribute("data-theme", name);
       var btns = document.querySelectorAll("[data-theme-btn]");
       for (var i=0;i<btns.length;i++) btns[i].classList.toggle("sel", btns[i].getAttribute("data-theme-btn")===name);
+      if (document.body.classList.contains("bg-art")) applyArtBg(); /* swap bg art with theme */
+      if (musicOn && bgm && !bgm.paused) playBgmTrack(); /* swap music track with theme */
+    }
+    function applySkin(name){
+      if (!SKINS[name]) name = "classic";
+      skin = name;
+      COLORS = SKINS[name].colors;
+      COLOR_DARK = SKINS[name].dark;
+      var btns = document.querySelectorAll("[data-skin-btn]");
+      for (var i=0;i<btns.length;i++) btns[i].classList.toggle("sel", btns[i].getAttribute("data-skin-btn")===name);
+      if (typeof G !== "undefined" && G) updateNextDot();
     }
     /* floating bubbles drifting up behind the whole page */
     (function buildDecor(){
@@ -774,6 +913,7 @@
           best: progress.best,
           lang: lang,
           theme: theme,
+          skin: skin,
           sound: soundOn,
           music: musicOn
         };
@@ -803,6 +943,7 @@
       }
       if (typeof d.lang === "string" && I18N[d.lang]) lang = d.lang;
       if (d.theme === "ocean" || d.theme === "sunset" || d.theme === "candy") theme = d.theme;
+      if (typeof d.skin === "string" && SKINS[d.skin]) skin = d.skin;
       if (typeof d.sound === "boolean") soundOn = d.sound;
       if (typeof d.music === "boolean") musicOn = d.music;
     }
@@ -1353,6 +1494,35 @@
       document.getElementById("scr-game").classList.toggle("on", name==="game");
       window.scrollTo(0,0);
     }
+    /* ---- Lazy artwork (added 2026-11-25) ----
+       Runs ~400 ms after window load so first paint stays fast.
+       Splash art = home hero + win-dialog celebration image.
+       One full-screen background per theme; the other two preload
+       quietly in the background for instant theme switching. */
+    function applyArtBg(){
+      try{
+        document.body.style.setProperty("--art-url", "url('assets/art/bg-" + theme + ".png')");
+        document.body.classList.add("bg-art");
+      }catch(e){}
+    }
+    function loadArt(){
+      try{
+        var hero = document.getElementById("hero-img");
+        if (hero){
+          hero.onload = function(){ hero.classList.add("show"); };
+          hero.src = "assets/art/splash.png";
+        }
+        var win = document.getElementById("win-img");
+        if (win){
+          win.onerror = function(){ win.style.display = "none"; };
+          win.src = "assets/art/splash.png";
+        }
+        applyArtBg();
+        ["ocean","sunset","candy"].forEach(function(th){
+          var im = new Image(); im.src = "assets/art/bg-" + th + ".png";
+        });
+      }catch(e){}
+    }
     function showOverlay(id){ document.getElementById(id).classList.add("on"); }
     function hideOverlay(id){ document.getElementById(id).classList.remove("on"); }
 
@@ -1725,10 +1895,17 @@
     for (var tbi=0; tbi<thBtns.length; tbi++){
       thBtns[tbi].addEventListener("click", function(){ applyTheme(this.getAttribute("data-theme-btn")); saveGame(); sfx("click"); });
     }
+    var skBtns = document.querySelectorAll("[data-skin-btn]");
+    for (var ski=0; ski<skBtns.length; ski++){
+      skBtns[ski].addEventListener("click", function(){ applySkin(this.getAttribute("data-skin-btn")); saveGame(); sfx("click"); });
+    }
     /* restore the saved settings into the UI, then start from the saved state */
     document.getElementById("tg-sound").classList.toggle("on", soundOn);
     document.getElementById("tg-music").classList.toggle("on", musicOn);
     applyTheme(theme);
+    applySkin(skin);
+    /* Artwork loads after first paint — never blocks the game opening. */
+    window.addEventListener("load", function(){ setTimeout(loadArt, 400); });
 
     renderHome();
     applyLang();
