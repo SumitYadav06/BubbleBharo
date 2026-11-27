@@ -118,16 +118,6 @@
       .lvl.locked .num{font-size:17px}
       .lvl.done{background:linear-gradient(180deg,#1d2b1f,#16241a);border-color:rgba(74,222,128,.35)}
       .lvl .tick{position:absolute;top:5px;right:7px;color:var(--good);font-size:12px;font-weight:900}
-      .ad-slot{
-        margin-top:20px;border:1.5px dashed rgba(255,255,255,.25);border-radius:14px;
-        min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-        color:var(--muted);background:rgba(255,255,255,.03);
-      }
-      .ad-slot b{font-size:11px;letter-spacing:.22em;text-transform:uppercase}
-      .ad-slot span{font-size:12px;font-weight:700}
-      /* In the APK the banner is a real native AdMob banner, so the
-         fake placeholder box must never show next to it. */
-      .native-ads .ad-slot{display:none;}
       /* ---------- lazy-loaded artwork (added 2026-11-25) ----------
          Theme backgrounds are applied by JS only after first paint
          (body.bg-art), so the game still opens instantly. */
@@ -223,9 +213,8 @@
       .lang-grid{display:flex;flex-wrap:wrap;gap:7px}
       .lang-grid button{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:8px 12px;font-weight:800;font-size:13.5px;min-height:38px}
       .lang-grid button.sel{background:var(--accent);color:#3a2400;border-color:transparent}
-      .ad-count{font-family:"Fredoka",sans-serif;font-size:44px;font-weight:700;color:var(--accent)}
-      .ad-frame{border:1.5px dashed rgba(255,255,255,.3);border-radius:16px;min-height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);margin:14px 0 4px;background:rgba(255,255,255,.03)}
-      .ad-frame b{letter-spacing:.22em;font-size:11px;text-transform:uppercase}
+      .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(12px);background:rgba(12,18,40,.94);border:1px solid rgba(255,255,255,.22);color:#fff;padding:11px 18px;border-radius:999px;font-weight:800;font-size:14.5px;opacity:0;pointer-events:none;z-index:300;transition:opacity .25s ease,transform .25s ease;white-space:nowrap;max-width:92vw;text-align:center}
+      .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
       /* ---------- ambience & themes ---------- */
       .bg-decor{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
       .bg-decor span{position:absolute;bottom:-70px;border-radius:50%;border:1.5px solid rgba(255,255,255,.28);
@@ -288,11 +277,6 @@
         <div class="level-grid" id="level-grid"></div>
         <div class="endless-more" data-i18n="endless_more">∞ And endless more — a new board every time, forever!</div>
 
-        <!-- AdMob banner slot: replace this placeholder with the real banner unit when publishing. -->
-        <div class="ad-slot" aria-hidden="true">
-          <b>Advertisement</b>
-          <span>AdMob banner space</span>
-        </div>
       </section>
 
       <!-- ================= GAME ================= -->
@@ -417,21 +401,7 @@
       </div>
     </div>
 
-    <!-- ================= AD BREAK ================= -->
-    <!-- AdMob interstitial slot: replace this placeholder screen with the real interstitial when publishing. -->
-    <div class="overlay" id="ov-ad">
-      <div class="dialog">
-        <h2 data-i18n="ad_t">Ad Break</h2>
-        <div class="ad-frame">
-          <b>Advertisement</b>
-          <span style="font-weight:700;font-size:13px">AdMob video ad space</span>
-          <div class="ad-count" id="ad-count">3</div>
-        </div>
-        <div class="row">
-          <button class="btn btn-play" id="btn-ad-close" disabled style="opacity:.45" data-i18n="continue">Continue</button>
-        </div>
-      </div>
-    </div>
+    <div id="toast" class="toast" aria-live="polite"></div>
 
     <!-- Real background music (original tracks, assets/audio/) -->
     <audio id="bgm" loop preload="none"></audio>
@@ -448,7 +418,7 @@
         settings:"Settings",sound:"Sound Effects",sound_s:"Pop, shoot and win sounds",
         music:"Music",music_s:"Sweet melodic background tune",language:"Language",done:"Done",
         theme:"Theme",theme_s:"Background style",skin:"Bubble Skin",skin_s:"Bubble colours",
-        ad_t:"Ad Break",continue:"Continue",watch_ad:"🎥 Watch Ad — Continue",
+        ad_t:"Ad Break",continue:"Continue",watch_ad:"🎥 Watch Ad — Continue",adNotReady:"Ad not ready yet — try again in a moment",
         level:"Level",left:"bubbles left",best:"Best",newbest:"New best score!",
         perfect:"Perfect!",great:"Great Job!",good:"Well Done!",
         endless_note:"Levels never end — easy at first, then harder & harder. How far can you go?",
@@ -462,7 +432,7 @@
         settings:"सेटिंग्स",sound:"आवाज़ इफ़ेक्ट",sound_s:"फूटने, शूट और जीत की आवाज़",
         music:"म्यूज़िक",music_s:"मीठी मेलोडी वाली बैकग्राउंड धुन",language:"भाषा",done:"हो गया",
         theme:"थीम",theme_s:"बैकग्राउंड स्टाइल",
-        ad_t:"विज्ञापन ब्रेक",continue:"आगे बढ़ो",watch_ad:"🎥 ऐड देखो — जारी रखो",
+        ad_t:"विज्ञापन ब्रेक",continue:"आगे बढ़ो",watch_ad:"🎥 ऐड देखो — जारी रखो",adNotReady:"विज्ञापन अभी तैयार नहीं है — थोड़ी देर में फिर कोशिश करें।",
         level:"लेवल",left:"बबल बचे",best:"सर्वश्रेष्ठ",newbest:"नया सर्वश्रेष्ठ स्कोर!",
         perfect:"एकदम परफेक्ट!",great:"शाबाश!",good:"बढ़िया खेले!",
         endless_note:"लेवल कभी ख़त्म नहीं होते — पहले आसान, फिर मुश्किल और मुश्किल। तुम कितनी दूर जा सकते हो?",
@@ -1019,7 +989,7 @@
     function rowLen(r){ return (r%2) ? COLS-1 : COLS; }
 
     function newGame(levelIdx){
-      if (window.AdMobNative) window.AdMobNative.hideBanner(); /* banner is Home-only */
+      if (window.UnityAdsNative) window.UnityAdsNative.hideBanner(); /* banner is Home-only */
       var grid = genLevel(levelIdx);
       G = {
         level: levelIdx, grid: grid, score: 0,
@@ -1646,252 +1616,193 @@
       var hl = document.getElementById("home-level"); if (hl) hl.textContent = "▶ " + t("level") + " " + progress.unlocked;
       var hb = document.getElementById("home-best"); if (hb) hb.textContent = "🏆 " + t("best") + " " + bestTotal;
       drawHeroBoard();
-      if (window.AdMobNative) window.AdMobNative.showHomeBanner(); /* banner is Home-only */
+      if (window.UnityAdsNative) window.UnityAdsNative.showHomeBanner(); /* banner is Home-only */
     }
 
-    /* ==================== Ads — real AdMob (2026-11-25) ====================
-       Placements (agreed with the user):
-         Banner       — Home only, never while playing
-         Interstitial — after every 3rd completed level
-         Rewarded     — ONLY when the player taps Watch Ad on the
-                        Lose screen (extra life: clears the bottom
-                        rows and continues). Reward is granted ONLY
-                        when AdMob reports it earned — never free.
-         App Open     — once when the game opens
-       NO Rewarded-interstitial unit exists — never create one.
-
-       HOW IT WORKS:
-       * Web preview: no Capacitor plugin → the demo overlays in
-         this page (the old behaviour). No real ad, no error.
-       * APK (native): window.AdMobNative talks to the real AdMob
-         SDK through @capacitor-community/admob v6
-         (Capacitor 6, installed by the GitHub workflow). The
-         workflow also writes the App ID into AndroidManifest +
-         strings.xml after `cap sync` — without that meta-data the
-         SDK refuses to initialise.
-       * App Open: this plugin version has NO App Open API, so the
-         app-open slot stays a demo overlay. It is never faked as a
-         real ad. A plugin with App Open support is a separate job.
-       AdMob IDs are public-safe identifiers only (payment is tied
-       to the AdMob account, not the ID) — they cannot be used to
-       hack the account or take earnings. */
-    var ADMOB = {
-      appId:          "ca-app-pub-2948876721824340~2382146287",  /* real, 2026-11-25 */
-      bannerId:       "ca-app-pub-2948876721824340/5575285835",  /* real, 2026-11-25 */
-      interstitialId: "ca-app-pub-2948876721824340/4003310178",  /* real, 2026-11-25 */
-      rewardedId:     "ca-app-pub-2948876721824340/2270978996",  /* real, 2026-11-25 */
-      appOpenId:      "ca-app-pub-2948876721824340/4550105086"   /* real, 2026-11-25 */
-    };
-    window.ADMOB_CONFIG = {
-      appId:              ADMOB.appId,
-      bannerUnitId:       ADMOB.bannerId,
-      interstitialUnitId: ADMOB.interstitialId,
-      appOpenUnitId:      ADMOB.appOpenId,
-      rewardedUnitId:     ADMOB.rewardedId
-    };
-    window.AdMobNative = (function(){
-      var cfg = window.ADMOB_CONFIG;
-      var plugin = null, inited = false, initPromise = null;
-      var bannerShown = false;
-      var interstitialReady = false;
-      var pendingInterstitialCb = null, pendingInterstitialFallback = null;
-      function isNative(){
-        try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
-        catch(e){ return false; }
+    /* ================= Ads — REAL Unity Ads (APK only) =================
+   Unity Ads SDK 4.x via a minimal local Capacitor plugin
+   (plugins/unity-ads in this repo — no maintained npm plugin for
+   Unity Ads exists, so the plugin is written here: UnityAds.initialize
+   / load / show + BannerView, wrapped as window.UnityAdsNative).
+   * APK (native): the plugin talks to the real Unity Ads SDK.
+     Game ID + placements are the real BubbleFodo Unity IDs (created
+     2026-11-27; no store URL was needed at signup).
+   * Web preview: no Unity SDK here — the bridge stays uninitialised
+     and the game just skips the ad (interstitial) or says "not
+     ready" (rewarded). There is no demo/fake ad anywhere in the app.
+   * No App Open: Unity Ads has no app-open format — do not invent one.
+     Nothing shows on cold start.
+   * Placements: banner on Home only, interstitial after every 3rd
+     completed level, rewarded only when the player taps Watch Ad
+     on the Lose screen (one extra life).
+     Nothing is forced during play. testMode is false (release). */
+window.UNITY_CONFIG = {
+  gameId: '800457126',
+  bannerPlacementId: 'BP_Banner_Android',
+  interstitialPlacementId: 'BP_Interstitial_Android',
+  rewardedPlacementId: 'BP_Rewarded_Android',
+  testMode: false
+};
+window.UnityAdsNative = (function(){
+  var cfg = window.UNITY_CONFIG;
+  var plugin = null, inited = false, initPromise = null;
+  var bannerShown = false;
+  var interstitialReady = false;
+  var pendingInterstitialCb = null, pendingInterstitialFallback = null;
+  function isNative(){
+    try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+    catch(e){ return false; }
+  }
+  function getPlugin(){
+    try{ var C = window.Capacitor; if(!C || !C.Plugins) return null; return C.Plugins.UnityAds || null; }
+    catch(e){ return null; }
+  }
+  function preloadInterstitial(){
+    if(!inited) return;
+    try{
+      plugin.loadInterstitial({placementId: cfg.interstitialPlacementId}).then(function(){ interstitialReady = true; })
+      .catch(function(){ interstitialReady = false; });
+    }catch(e){ interstitialReady = false; }
+  }
+  function preloadRewarded(){
+    if(!inited) return;
+    try{ plugin.loadRewarded({placementId: cfg.rewardedPlacementId}).catch(function(){}); }
+    catch(e){}
+  }
+  function showHomeBanner(){
+    if(!inited || bannerShown) return;
+    try{
+      plugin.showBanner({placementId: cfg.bannerPlacementId}).then(function(){
+        bannerShown = true;
+        try{ document.body.classList.add('native-ads'); }catch(e){}
+      }).catch(function(){});
+    }catch(e){}
+  }
+  function hideBanner(){
+    if(!inited || !bannerShown) return;
+    bannerShown = false;
+    try{ document.body.classList.remove('native-ads'); }catch(e){}
+    try{ plugin.hideBanner().catch(function(){}); }catch(e){}
+  }
+  function showInterstitial(onShown, onFallback){
+    if(!inited || !interstitialReady){
+      if(inited) preloadInterstitial();
+      if(onFallback) onFallback();
+      return;
+    }
+    interstitialReady = false;
+    pendingInterstitialCb = onShown || null;
+    pendingInterstitialFallback = onFallback || null;
+    setTimeout(function(){
+      if(pendingInterstitialCb){
+        var cb = pendingInterstitialCb;
+        pendingInterstitialCb = null; pendingInterstitialFallback = null;
+        preloadInterstitial();
+        if(cb) cb();
       }
-      function getPlugin(){
-        try{ var C = window.Capacitor; if(!C || !C.Plugins) return null; return C.Plugins.AdMob || null; }
-        catch(e){ return null; }
-      }
-      function preloadInterstitial(){
-        if(!inited) return;
-        try{
-          plugin.prepareInterstitial({adId: cfg.interstitialUnitId}).then(function(){
-            interstitialReady = true;
-          }).catch(function(){ interstitialReady = false; });
-        }catch(e){ interstitialReady = false; }
-      }
-      function preloadRewarded(){
-        if(!inited) return;
-        try{ plugin.prepareRewardVideoAd({adId: cfg.rewardedUnitId}).catch(function(){}); }
-        catch(e){}
-      }
-      function showHomeBanner(){
-        if(!inited || bannerShown) return;
-        try{
-          plugin.showBanner({adId: cfg.bannerUnitId, adSize: 'BANNER', position: 'BOTTOM_CENTER', margin: 0}).then(function(){
-            bannerShown = true;
-            try{ document.body.classList.add('native-ads'); }catch(e){}
-          }).catch(function(){});
-        }catch(e){}
-      }
-      function hideBanner(){
-        if(!inited || !bannerShown) return;
-        bannerShown = false;
-        try{ plugin.hideBanner().catch(function(){}); }catch(e){}
-      }
-      /* Interstitial: onShown runs only after the ad is dismissed
-         (Dismissed event). onFallback runs when no real ad is
-         available at all (web preview / no fill / load failed) —
-         the caller then shows the demo overlay instead. */
-      function showInterstitial(onShown, onFallback){
-        if(!inited || !interstitialReady){
-          if(inited) preloadInterstitial();
-          if(onFallback) onFallback();
-          return;
-        }
-        interstitialReady = false;
-        pendingInterstitialCb = onShown || null;
-        pendingInterstitialFallback = onFallback || null;
-        /* Safety net: if the Dismissed event never arrives (plugin
-           quirk), never leave the player stuck on the ad break —
-           after 120s (longer than any interstitial) move on. */
-        setTimeout(function(){
-          if(pendingInterstitialCb){
-            var cb = pendingInterstitialCb;
-            pendingInterstitialCb = null; pendingInterstitialFallback = null;
-            preloadInterstitial();
-            if(cb) cb();
-          }
-        }, 120000);
-        try{
-          var p = plugin.showInterstitial();
-          if(p && p.then){
-            p.catch(function(){
-              var fb = pendingInterstitialFallback;
-              pendingInterstitialCb = null; pendingInterstitialFallback = null;
-              preloadInterstitial();
-              if(fb) fb();
-            });
-          }
-        }catch(e){
-          pendingInterstitialCb = null; pendingInterstitialFallback = null;
-          preloadInterstitial();
-          if(onFallback) onFallback();
-        }
-      }
-      /* Rewarded: onRewarded runs ONLY when AdMob reports the user
-         earned the reward. onLoadFail = ad could not even load
-         (no fill) — caller may show the demo overlay. onNotEarned =
-         ad showed but the user closed it without earning — no
-         reward and no demo, so nobody gets a free extra life. */
-      function showRewarded(onRewarded, onLoadFail, onNotEarned){
-        if(!inited){ if(onLoadFail) onLoadFail(); return; }
-        try{
-          plugin.prepareRewardVideoAd({adId: cfg.rewardedUnitId}).then(function(){
-            var shown = plugin.showRewardVideoAd();
-            if(shown && shown.then){
-              shown.then(function(reward){
-                preloadRewarded();
-                if(reward){ if(onRewarded) onRewarded(); }
-                else if(onNotEarned) onNotEarned();
-              }).catch(function(){
-                preloadRewarded();
-                if(onNotEarned) onNotEarned();
-              });
-            } else if(onNotEarned) onNotEarned();
-          }).catch(function(){ if(onLoadFail) onLoadFail(); });
-        }catch(e){ if(onLoadFail) onLoadFail(); }
-      }
-      function init(){
-        if(initPromise) return initPromise;
-        initPromise = new Promise(function(resolve){
-          if(!isNative()){ resolve(false); return; }
-          plugin = getPlugin();
-          if(!plugin || !plugin.initialize){ resolve(false); return; }
-          try{
-            if(plugin.addListener){
-              plugin.addListener('interstitialAdDismissed', function(){
-                var cb = pendingInterstitialCb;
-                pendingInterstitialCb = null; pendingInterstitialFallback = null;
-                preloadInterstitial();
-                if(cb) cb();
-              });
-              plugin.addListener('interstitialAdFailedToShow', function(){
-                var fb = pendingInterstitialFallback;
-                pendingInterstitialCb = null; pendingInterstitialFallback = null;
-                preloadInterstitial();
-                if(fb) fb();
-              });
-              plugin.addListener('interstitialAdFailedToLoad', function(){ interstitialReady = false; });
-            }
-          }catch(e){}
-          plugin.initialize().then(function(){
+    }, 120000);
+    try{
+      plugin.showInterstitial({placementId: cfg.interstitialPlacementId}).then(function(){
+        var cb = pendingInterstitialCb;
+        pendingInterstitialCb = null; pendingInterstitialFallback = null;
+        preloadInterstitial();
+        if(cb) cb();
+      }).catch(function(){
+        var fb = pendingInterstitialFallback;
+        pendingInterstitialCb = null; pendingInterstitialFallback = null;
+        preloadInterstitial();
+        if(fb) fb();
+      });
+    }catch(e){
+      pendingInterstitialCb = null; pendingInterstitialFallback = null;
+      preloadInterstitial();
+      if(onFallback) onFallback();
+    }
+  }
+  function showRewarded(onRewarded, onLoadFail, onNotEarned){
+    if(!inited){ if(onLoadFail) onLoadFail(); return; }
+    try{
+      plugin.loadRewarded({placementId: cfg.rewardedPlacementId}).then(function(){
+        plugin.showRewarded({placementId: cfg.rewardedPlacementId}).then(function(res){
+          preloadRewarded();
+          if(res && res.earned){ if(onRewarded) onRewarded(); }
+          else if(onNotEarned) onNotEarned();
+        }).catch(function(){
+          preloadRewarded();
+          if(onNotEarned) onNotEarned();
+        });
+      }).catch(function(){ if(onLoadFail) onLoadFail(); });
+    }catch(e){ if(onLoadFail) onLoadFail(); }
+  }
+  function init(){
+    if(initPromise) return initPromise;
+    initPromise = new Promise(function(resolve){
+      if(!isNative()){ resolve(false); return; }
+      plugin = getPlugin();
+      if(!plugin || !plugin.initialize){ resolve(false); return; }
+      var settled = false;
+      function done(v){ if(!settled){ settled = true; resolve(v); } }
+      setTimeout(function(){ done(false); }, 15000);
+      try{
+        plugin.initialize({gameId: cfg.gameId, testMode: cfg.testMode}).then(function(res){
+          if(res && res.initialized){
             inited = true;
-            /* UMP consent (EEA/UK only in practice): best-effort,
-               never blocks the game or the ads. */
-            try{
-              if(plugin.requestConsentInfo){
-                plugin.requestConsentInfo().then(function(info){
-                  if(info && info.isConsentFormAvailable && info.status === 'REQUIRED' && plugin.showConsentForm){
-                    plugin.showConsentForm().catch(function(){});
-                  }
-                }).catch(function(){});
-              }
-            }catch(e){}
             preloadInterstitial();
             preloadRewarded();
             showHomeBanner();
-            resolve(true);
-          }).catch(function(){ resolve(false); });
-        });
-        return initPromise;
-      }
-      return {
-        init: init,
-        isNative: isNative,
-        isReady: function(){ return inited; },
-        showHomeBanner: showHomeBanner,
-        hideBanner: hideBanner,
-        showInterstitial: showInterstitial,
-        showRewarded: showRewarded
-      };
-    })();
-    /* Backwards-compatible seam.
-       App Open: no API in this plugin version — the demo overlay
-       in the app-open timer below stays as-is; do NOT wire the App
-       Open unit id into an interstitial call (wrong format, policy risk). */
-    window.admobShowInterstitial = function(onClose, onFallback){
-      if(window.AdMobNative) window.AdMobNative.showInterstitial(onClose, onFallback);
-      else if(onFallback) onFallback();
-    };
-    window.admobShowAppOpen = function(onClose){
-      /* Demo overlay only — see note above. */
-      if(onClose) onClose();
-    };
-    window.admobShowRewarded = function(onReward, onLoadFail, onNotEarned){
-      if(window.AdMobNative) window.AdMobNative.showRewarded(onReward, onLoadFail, onNotEarned);
-      else if(onLoadFail) onLoadFail();
-    };
-    /* Demo ad-break overlay: used on web preview and as the fallback
-       when no real ad can load (no fill). Never shown next to a real ad. */
-    var adTimer = null;
-    function showAdBreak(seconds, fn){
-      showOverlay("ov-ad");
-      var left = seconds, cnt = document.getElementById("ad-count"), btn = document.getElementById("btn-ad-close");
-      cnt.textContent = left; btn.disabled = true; btn.style.opacity = ".45";
-      if (adTimer) clearInterval(adTimer);
-      adTimer = setInterval(function(){
-        left--; cnt.textContent = Math.max(left, 0);
-        if (left <= 0){ clearInterval(adTimer); adTimer = null; btn.disabled = false; btn.style.opacity = "1"; }
-      }, 1000);
-      btn.onclick = function(){ hideOverlay("ov-ad"); sfx("click"); if (fn) fn(); };
+            done(true);
+          } else done(false);
+        }).catch(function(){ done(false); });
+      }catch(e){ done(false); }
+    });
+    return initPromise;
+  }
+  return {
+    init: init,
+    isNative: isNative,
+    isReady: function(){ return inited; },
+    showHomeBanner: showHomeBanner,
+    hideBanner: hideBanner,
+    showInterstitial: showInterstitial,
+    showRewarded: showRewarded
+  };
+})();
+window.unityShowInterstitial = function(onClose, onFallback){
+  if(window.UnityAdsNative) window.UnityAdsNative.showInterstitial(onClose, onFallback);
+  else if(onFallback) onFallback();
+};
+window.unityShowRewarded = function(onReward, onLoadFail, onNotEarned){
+  if(window.UnityAdsNative) window.UnityAdsNative.showRewarded(onReward, onLoadFail, onNotEarned);
+  else if(onLoadFail) onLoadFail();
+};
+
+    /* Short toast for "ad not ready" — the only feedback when no
+       real rewarded ad can load. No reward is ever granted here. */
+    var toastTimer = null;
+    function showToast(msg){
+      var el = document.getElementById("toast");
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add("show");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2000);
     }
-    /* interstitial after every 3rd completed level — real ad first,
-       demo overlay only if the real ad cannot load */
+    /* interstitial after every 3rd completed level — real ad first;
+       if no real ad is ready the next level just starts, no fake break */
     function maybeAdThen(fn){
       if (G && (G.level+1) % 3 === 0){
-        if (window.AdMobNative && window.AdMobNative.isReady()){
-          window.AdMobNative.showInterstitial(fn, function(){ showAdBreak(3, fn); });
-        } else showAdBreak(3, fn);
+        if (window.UnityAdsNative && window.UnityAdsNative.isReady()){
+          window.UnityAdsNative.showInterstitial(fn, fn);
+        } else fn();
       }
       else fn();
     }
     /* Rewarded extra life (Lose screen, opt-in only): clears the two
        lowest bubble rows and lets the player continue the same level.
-       Only once per level attempt. Real ad first; demo overlay only
-       if the ad cannot load; nothing at all if the ad was closed
-       without earning — no free extra life. */
+       Only once per level attempt. Real ad first; if no real ad
+       is ready the player is told to try again later — no extra
+       life without a real completed ad, and nothing at all if the
+       ad was closed without earning. */
     function continueAfterAd(){
       if (!G) return;
       var cleared = 0;
@@ -1910,22 +1821,14 @@
       sfx("click");
     }
     function showRewardedAd(onEarned){
-      if (window.AdMobNative && window.AdMobNative.isReady()){
-        window.AdMobNative.showRewarded(onEarned,
-          function(){ showAdBreak(3, onEarned); }, /* no fill -> demo, then grant */
+      if (window.UnityAdsNative && window.UnityAdsNative.isReady()){
+        window.UnityAdsNative.showRewarded(onEarned,
+          function(){ showToast(t("adNotReady")); }, /* no fill: no extra life */
           function(){ /* closed without earning: stay on Lose screen */ });
       } else {
-        showAdBreak(3, onEarned); /* web preview: demo, then grant */
+        showToast(t("adNotReady")); /* no real ad: no extra life */
       }
     }
-    /* app-open ad: once per session, shortly after the app opens on Home.
-       Demo overlay only — the AdMob plugin has no App Open API. */
-    var appOpenAdDone = false;
-    setTimeout(function(){
-      if (appOpenAdDone) return;
-      appOpenAdDone = true;
-      if (document.getElementById("scr-home").classList.contains("on")) showAdBreak(3, null);
-    }, 1100);
 
     /* ==================== Wiring ==================== */
     function startMusicIfOn(){ if (musicOn) startMusic(); }
@@ -2005,8 +1908,8 @@
 
     renderHome();
     applyLang();
-    /* Real AdMob (APK only) — no-op on web preview. */
-    if (window.AdMobNative) window.AdMobNative.init();
+    /* Real Unity (APK only) — no-op on web preview. */
+    if (window.UnityAdsNative) window.UnityAdsNative.init();
     </script>
   
 <script>
