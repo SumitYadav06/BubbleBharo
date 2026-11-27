@@ -424,6 +424,17 @@
       </div>
     </div>
 
+    <!-- ================= UPDATE AVAILABLE ================= -->
+    <div class="overlay" id="ov-update">
+      <div class="dialog">
+        <div style="font-size:44px;line-height:1">⬆️</div>
+        <h2>Naya version aa gaya hai — Update karo</h2>
+        <p>A new version is available — Update now</p>
+        <button class="btn btn-play" id="btn-update-now" style="width:100%;margin-top:14px">⬇️ Update karo</button>
+        <button class="btn btn-ghost" id="btn-update-later" style="width:100%;margin-top:10px">Baad me / Later</button>
+      </div>
+    </div>
+
     <div id="toast" class="toast" aria-live="polite"></div>
 
     <!-- Real background music (original tracks, assets/audio/) -->
@@ -431,6 +442,56 @@
 
     <script>
     "use strict";
+    /* ==================== App version check ("Old version — Update karo") ====================
+       Old APKs cannot be changed retroactively, so the check lives in NEW builds: CI stamps
+       APP_VERSION to the build's run number (= versionCode) and the app compares it with
+       www/version.json ("latest") fetched from the public repo on launch.
+       * Unstamped build (website preview): APP_VERSION is a string, never a number — no prompt.
+       * Fetch fails / bad JSON / bad shape: silently ignored, the game works fully offline.
+       * APP_VERSION < latest: one designed full-screen modal per launch, with Update (opens the
+         release APK link) and "Baad me / Later" (dismisses for this session only). */
+    var APP_VERSION = "__APP_VERSION__";
+    var VERSION_URL = "https://raw.githubusercontent.com/SumitYadav06/BubbleBharo/main/www/version.json";
+    var updateShown = false;
+    function validVersionInfo(d){
+      if(!d || typeof d !== "object") return false;
+      if(typeof d.latest !== "number" || !isFinite(d.latest)) return false;
+      if(typeof d.apkUrl !== "string" || d.apkUrl.indexOf("https://github.com/SumitYadav06/") !== 0) return false;
+      return true;
+    }
+    function showUpdateModal(apkUrl){
+      if(updateShown) return; updateShown = true;
+      try{
+        var ov = document.getElementById("ov-update"); if(!ov) return;
+        var go = document.getElementById("btn-update-now");
+        var later = document.getElementById("btn-update-later");
+        if(go) go.onclick = function(){
+          var w = null;
+          try{ w = window.open(apkUrl, "_blank"); }catch(e){ w = null; }
+          if(!w){ try{ window.location.href = apkUrl; }catch(e2){} }
+        };
+        if(later) later.onclick = function(){ ov.classList.remove("on"); };
+        ov.classList.add("on");
+      }catch(e){ /* modal must never break the game */ }
+    }
+    function checkAppVersion(){
+      if(typeof APP_VERSION !== "number") return; /* website preview / unstamped build: never prompt */
+      try{
+        if(typeof fetch !== "function") return;
+        var ctrl = ("AbortController" in window) ? new AbortController() : null;
+        var timer = null;
+        if(ctrl) timer = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 4000);
+        var opts = ctrl ? { signal: ctrl.signal, cache: "no-store" } : { cache: "no-store" };
+        fetch(VERSION_URL, opts).then(function(res){
+          if(timer) clearTimeout(timer);
+          if(!res || !res.ok) return null;
+          return res.json();
+        }).then(function(data){
+          if(!validVersionInfo(data)) return;
+          if(APP_VERSION < data.latest) showUpdateModal(data.apkUrl);
+        }).catch(function(){ if(timer) clearTimeout(timer); });
+      }catch(e){ /* offline / no fetch: ignore silently */ }
+    }
     /* ==================== i18n ==================== */
     var I18N = {
       en:{tagline:"Aim, shoot & pop all the bubbles!",play:"Play",levels:"Levels",
@@ -1951,6 +2012,8 @@ window.unityShowRewarded = function(onReward, onLoadFail, onNotEarned){
 
     renderHome();
     applyLang();
+    /* Old-version prompt (silent when offline / preview). */
+    checkAppVersion();
     /* Real Unity (APK only) — no-op on web preview. */
     if (window.UnityAdsNative) window.UnityAdsNative.init();
     </script>
