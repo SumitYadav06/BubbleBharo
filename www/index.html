@@ -981,6 +981,15 @@
       if (typeof d.music === "boolean") musicOn = d.music;
     }
     loadSave();
+    /* Banner eligibility (binding rule): the Home banner may only
+       appear once the player has completed 4 levels. The Unity bridge
+       asks this before showing a banner — on cold start it answers
+       "no", so no ad ever shows on app open. Uses the same persisted
+       stars map as the level grid (a level counts once it has stars);
+       no second counter. */
+    window.__bannerEligible = function(){
+      return Object.keys(progress.stars).length >= 4;
+    };
     /* extra safety net: also flush the save when the page is closed/hidden */
     window.addEventListener("beforeunload", saveGame);
     document.addEventListener("visibilitychange", function(){
@@ -1655,8 +1664,9 @@
      ready" (rewarded). There is no demo/fake ad anywhere in the app.
    * No App Open: Unity Ads has no app-open format — do not invent one.
      Nothing shows on cold start.
-   * Placements: banner on Home only, interstitial after every 3rd
-     completed level, rewarded only when the player taps Watch Ad
+   * Placements: banner on Home only once 4 levels are completed,
+     interstitial after every 4th completed level, rewarded only when
+     the player taps Watch Ad
      on the Lose screen (one extra life).
      Nothing is forced during play. testMode is false (release). */
 window.UNITY_CONFIG = {
@@ -1694,6 +1704,16 @@ window.UnityAdsNative = (function(){
   }
   function showHomeBanner(){
     if(!inited || bannerShown) return;
+    /* BANNER GATE (binding rule): no banner on app open, and none
+       before the player has completed 4 levels / pictures / game
+       overs. The game exposes its own persisted completed count via
+       window.__bannerEligible; until it answers yes this is a no-op
+       and no banner view is ever created, so Home shows no ad and no
+       empty ad gap. Fail closed: a missing or throwing predicate
+       means no banner. */
+    var __eligible = false;
+    try{ __eligible = (typeof window.__bannerEligible === 'function') && !!window.__bannerEligible(); }catch(e){ __eligible = false; }
+    if(!__eligible) return;
     try{
       plugin.showBanner({placementId: cfg.bannerPlacementId}).then(function(){
         bannerShown = true;
@@ -1772,7 +1792,7 @@ window.UnityAdsNative = (function(){
             inited = true;
             preloadInterstitial();
             preloadRewarded();
-            showHomeBanner();
+            showHomeBanner(); /* gated inside: no-op until 4 completions */
             done(true);
           } else done(false);
         }).catch(function(){ done(false); });
@@ -1810,10 +1830,10 @@ window.unityShowRewarded = function(onReward, onLoadFail, onNotEarned){
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2000);
     }
-    /* interstitial after every 3rd completed level — real ad first;
+    /* interstitial after every 4th completed level — real ad first;
        if no real ad is ready the next level just starts, no fake break */
     function maybeAdThen(fn){
-      if (G && (G.level+1) % 3 === 0){
+      if (G && (G.level+1) % 4 === 0){
         if (window.UnityAdsNative && window.UnityAdsNative.isReady()){
           window.UnityAdsNative.showInterstitial(fn, fn);
         } else fn();
